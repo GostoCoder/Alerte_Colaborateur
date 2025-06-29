@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Collaborators Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .expiring-soon {
+            background-color: #fff3cd !important;
+        }
+        @media (max-width: 600px) {
+            .table-responsive, .content-card {
+                padding: 0.5rem !important;
+            }
+            .table th, .table td {
+                font-size: 0.95em;
+                padding: 0.3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <span class="navbar-brand">Collaborators Dashboard</span>
+    </nav>
+    <div class="container">
+        <div class="content-card">
+            <form id="searchForm">
+                <input type="text" id="searchQuery" class="form-control" placeholder="Search by name, surname, or certification">
+                <button type="submit" class="btn btn-primary">Search</button>
+                <button type="button" class="btn btn-primary" id="addCollaboratorBtn">Add Collaborator</button>
+            </form>
+            <div class="table-responsive">
+                <table class="table" id="collaboratorsTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Surname</th>
+                            <th>Certification</th>
+                            <th>Certification Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="collaboratorsTableBody">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- Modal for Add/Edit Collaborator -->
+    <div id="collaboratorModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="modalTitle">Add Collaborator</span>
+                <span id="closeModal" style="cursor:pointer;float:right;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="collaboratorForm">
+                    <input type="hidden" id="collaboratorId">
+                    <div>
+                        <label class="form-label">Name</label>
+                        <input type="text" id="name" class="form-control" required>
+                    </div>
+                    <div>
+                        <label class="form-label">Surname</label>
+                        <input type="text" id="surname" class="form-control" required>
+                    </div>
+                    <div>
+                        <label class="form-label">Certification</label>
+                        <input type="text" id="certification" class="form-control" required>
+                    </div>
+                    <div>
+                        <label class="form-label">Certification Date</label>
+                        <input type="date" id="certification_date" class="form-control" required>
+                    </div>
+                    <div style="margin-top:1rem;">
+                        <button type="submit" class="btn btn-primary" id="saveBtn">Save</button>
+                        <button type="button" class="btn btn-danger" id="cancelBtn">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="/static/scripts.js"></script>
+</body>
+</html>

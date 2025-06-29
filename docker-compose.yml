@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  fastapi-app:
+    build: .
+    container_name: fastapi-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./database_1.db:/app/database_1.db
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  # No named volumes needed since SQLite is file-based and mapped above
