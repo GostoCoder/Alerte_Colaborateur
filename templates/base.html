@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     {% block extra_css %}{% endblock %}
 </head>
-<body{% if request.endpoint not in ['add_vehicle_1', 'add_vehicle_2', 'add_vehicle_3', 'add_vehicle_4', 'edit_vehicle_1', 'edit_vehicle_2', 'edit_vehicle_3', 'edit_vehicle_4'] %} style="background-image: url('/static/home_background.jpg'); background-size: cover;"{% endif %}>
+<body{% if request.endpoint not in ['add_vehicle_1', 'edit_vehicle_1'] %} style="background-image: url('/static/home_background.jpg'); background-size: cover;"{% endif %}>
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
@@ -28,18 +28,6 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'index_1' %}active{% endif %}" 
                            href="{{ url_for('index_1') }}">Base de données 1</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'index_2' %}active{% endif %}" 
-                           href="{{ url_for('index_2') }}">Base de données 2</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'index_3' %}active{% endif %}" 
-                           href="{{ url_for('index_3') }}">Base de données 3</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'index_4' %}active{% endif %}" 
-                           href="{{ url_for('index_4') }}">Base de données 4</a>
                     </li>
                 </ul>
                 <ul class="navbar-nav ms-auto">

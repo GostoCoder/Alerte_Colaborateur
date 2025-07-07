@@ -7,35 +7,22 @@
         background-color: white !important;
         background-image: none !important;
     }
-
     .container {
         background-color: white !important;
     }
-
     .card {
         background-color: white !important;
     }
-
-    #limit_periodic_inspection, #date_periodic_inspection {
-        border-color: #ffa500;
-        background-color: #fff3e0 !important;
-    }
-
-    #limit_additional_inspection, #date_additional_inspection {
-        border-color: #9c27b0;
-        background-color: #f3e5f5 !important;
-    }
-
 </style>
 {% endblock %}
 
-{% block title %}Modifier un Véhicule - Base de données 1{% endblock %}
+{% block title %}Modifier un Collaborateur{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="card">
         <div class="card-body">
-            <h1>Modifier un Véhicule</h1>
+            <h1>Modifier un Collaborateur</h1>
 
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -45,87 +32,55 @@
             {% endif %}
             {% endwith %}
 
-            <form method="POST" action="{{ url_for('edit_vehicle_1', id=vehicle.id) }}">
+            <form method="POST" action="{{ url_for('edit_vehicle_1', id=collaborateur.id) }}">
                 <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <label for="vehicle_type" class="form-label">Type de Véhicule *</label>
-                        <input type="text" class="form-control" id="vehicle_type" name="vehicle_type"
-                            value="{{ vehicle.vehicle_type }}" required>
+                    <div class="col-md-6 mb-3">
+                        <label for="nom" class="form-label">Nom *</label>
+                        <input type="text" class="form-control" id="nom" name="nom" value="{{ collaborateur.nom }}" required>
                     </div>
-                    <div class="col-md-4 mb-3">
-                        <label for="brand" class="form-label">Marque *</label>
-                        <input type="text" class="form-control" id="brand" name="brand" value="{{ vehicle.brand }}"
-                            required>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <label for="commercial_type" class="form-label">Type Commercial *</label>
-                        <input type="text" class="form-control" id="commercial_type" name="commercial_type"
-                            value="{{ vehicle.commercial_type }}" required>
+                    <div class="col-md-6 mb-3">
+                        <label for="prenom" class="form-label">Prénom *</label>
+                        <input type="text" class="form-control" id="prenom" name="prenom" value="{{ collaborateur.prenom }}" required>
                     </div>
                 </div>
-
                 <div class="row">
                     <div class="col-md-4 mb-3">
-                        <label for="group_number" class="form-label">Numéro de Groupe</label>
-                        <input type="number" class="form-control" id="group_number" name="group_number"
-                            value="{{ vehicle.group_number }}">
+                        <label for="ifo" class="form-label">IFO</label>
+                        <input type="date" class="form-control" id="ifo" name="ifo" value="{{ collaborateur.ifo.strftime('%Y-%m-%d') if collaborateur.ifo }}">
                     </div>
                     <div class="col-md-4 mb-3">
-                        <label for="license_plate" class="form-label">Plaque d'Immatriculation *</label>
-                        <input type="text" class="form-control" id="license_plate" name="license_plate"
-                            value="{{ vehicle.license_plate }}" required>
+                        <label for="caces" class="form-label">CACES</label>
+                        <input type="date" class="form-control" id="caces" name="caces" value="{{ collaborateur.caces.strftime('%Y-%m-%d') if collaborateur.caces }}">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="airr" class="form-label">AIRR</label>
+                        <input type="date" class="form-control" id="airr" name="airr" value="{{ collaborateur.airr.strftime('%Y-%m-%d') if collaborateur.airr }}">
                     </div>
                 </div>
-
                 <div class="row">
                     <div class="col-md-4 mb-3">
-                        <label for="limit_periodic_inspection" class="form-label">Limite CT Périodique</label>
-                        <input type="date" class="form-control" id="limit_periodic_inspection" 
-                            name="limit_periodic_inspection" placeholder="dd/mm/yyyy"
-                            value="{{ vehicle.limit_periodic_inspection.strftime('%Y-%m-%d') if vehicle.limit_periodic_inspection }}">
+                        <label for="hgo" class="form-label">HGO</label>
+                        <input type="date" class="form-control" id="hgo" name="hgo" value="{{ collaborateur.hgo.strftime('%Y-%m-%d') if collaborateur.hgo }}">
                     </div>
                     <div class="col-md-4 mb-3">
-                        <label for="kilometer_periodic_inspection" class="form-label">Kilométrage CT Périodique</label>
-                        <input type="number" class="form-control" id="kilometer_periodic_inspection"
-                            name="kilometer_periodic_inspection" value="{{ vehicle.kilometer_periodic_inspection }}">
+                        <label for="bo" class="form-label">BO</label>
+                        <input type="date" class="form-control" id="bo" name="bo" value="{{ collaborateur.bo.strftime('%Y-%m-%d') if collaborateur.bo }}">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="visite_med" class="form-label">Visite Médicale</label>
+                        <input type="date" class="form-control" id="visite_med" name="visite_med" value="{{ collaborateur.visite_med.strftime('%Y-%m-%d') if collaborateur.visite_med }}">
                     </div>
                 </div>
-
                 <div class="row">
                     <div class="col-md-4 mb-3">
-                        <label for="limit_additional_inspection" class="form-label">Limite CT Additionnel</label>
-                        <input type="date" class="form-control" id="limit_additional_inspection"
-                            name="limit_additional_inspection" placeholder="dd/mm/yyyy"
-                            value="{{ vehicle.limit_additional_inspection.strftime('%Y-%m-%d') if vehicle.limit_additional_inspection }}">
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <label for="kilometer_additional_inspection" class="form-label">Kilométrage CT Additionnel</label>
-                        <input type="number" class="form-control" id="kilometer_additional_inspection"
-                            name="kilometer_additional_inspection" value="{{ vehicle.kilometer_additional_inspection }}">
+                        <label for="brevet_secour" class="form-label">Brevet Secourisme</label>
+                        <input type="date" class="form-control" id="brevet_secour" name="brevet_secour" value="{{ collaborateur.brevet_secour.strftime('%Y-%m-%d') if collaborateur.brevet_secour }}">
                     </div>
                 </div>
-
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <label for="date_periodic_inspection" class="form-label">Date CT Périodique</label>
-                        <input type="date" class="form-control" id="date_periodic_inspection"
-                            name="date_periodic_inspection" placeholder="dd/mm/yyyy"
-                            value="{{ vehicle.date_periodic_inspection.strftime('%Y-%m-%d') if vehicle.date_periodic_inspection }}">
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <label for="date_additional_inspection" class="form-label">Date CT Additionnel</label>
-                        <input type="date" class="form-control" id="date_additional_inspection"
-                            name="date_additional_inspection" placeholder="dd/mm/yyyy"
-                            value="{{ vehicle.date_additional_inspection.strftime('%Y-%m-%d') if vehicle.date_additional_inspection }}">
-                    </div>
-                </div>
-
                 <div class="mb-3">
-                    <label for="comments" class="form-label">Commentaires</label>
-                    <textarea class="form-control" id="comments" name="comments"
-                        rows="3">{{ vehicle.comments }}</textarea>
+                    <label for="commentaire" class="form-label">Commentaire</label>
+                    <textarea class="form-control" id="commentaire" name="commentaire" rows="3">{{ collaborateur.commentaire }}</textarea>
                 </div>
-
                 <div class="mb-3">
                     <button type="submit" class="btn btn-primary">Enregistrer</button>
                     <a href="{{ url_for('index_1') }}" class="btn btn-secondary">Annuler</a>
@@ -134,47 +89,4 @@
         </div>
     </div>
 </div>
-
-<script>
-
-    // Form validation
-    (function () {
-        'use strict'
-        var forms = document.querySelectorAll('.needs-validation')
-        Array.prototype.slice.call(forms).forEach(function (form) {
-            form.addEventListener('submit', function (event) {
-                if (!form.checkValidity()) {
-                    event.preventDefault()
-                    event.stopPropagation()
-                }
-                form.classList.add('was-validated')
-            }, false)
-        })
-    })()
-
-    const limitPeriodicInspectionInput = document.getElementById('limit_periodic_inspection');
-    const datePeriodicInspectionInput = document.getElementById('date_periodic_inspection');
-    let previousDate_perio = limitPeriodicInspectionInput.value;
-
-    limitPeriodicInspectionInput.addEventListener('change', () => {
-        const newDate = limitPeriodicInspectionInput.value;
-        if (newDate > previousDate_perio) {
-            datePeriodicInspectionInput.value = '';
-        }
-        previousDate_perio = newDate;
-    });
-
-    const limitAdditionalInspectionInput = document.getElementById('limit_additional_inspection');
-    const dateAdditionalInspectionInput = document.getElementById('date_additional_inspection');
-    let previousDate_add = limitAdditionalInspectionInput.value;
-
-    limitAdditionalInspectionInput.addEventListener('change', () => {
-        const newDate = limitAdditionalInspectionInput.value;
-        if (newDate > previousDate_add) {
-            dateAdditionalInspectionInput.value = '';
-        }
-        previousDate_add = newDate;
-    });
-</script>
-
 {% endblock %}
