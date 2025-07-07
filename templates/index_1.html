@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Véhicules</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    {% extends "base.html" %}
+
+    {% block title %}Gestion des Véhicules - Base de données 1{% endblock %}
+
+    {% block content %}
+    <div class="container mt-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col">
+                        <h1>Liste des Véhicules</h1>
+                    </div>
+                    <div class="col text-end">
+                        <a href="{{ url_for('add_vehicle_1') }}" class="btn btn-primary">Ajouter un véhicule</a>
+                    </div>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method="GET" action="{{ url_for('index_1') }}" class="mb-4">
+                    <div class="input-group">
+                        <input type="text" name="search" class="form-control" 
+                               placeholder="Rechercher par type, marque, plaque d'immatriculation, etc..." 
+                               value="{{ search_term }}">
+                        <button type="submit" class="btn btn-primary">Rechercher</button>
+                    </div>
+                </form>
+
+                <style>
+                    .sortable {
+                        cursor: pointer;
+                        position: relative;
+                        padding-right: 20px !important;
+                    }
+                    .sortable:after {
+                        content: '↕';
+                        position: absolute;
+                        right: 5px;
+                        color: #999;
+                    }
+                    .sortable.asc:after {
+                        content: '↑';
+                        color: #000;
+                    }
+                    .sortable.desc:after {
+                        content: '↓';
+                        color: #000;
+                    }
+                </style>
+
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th class="sortable {{ 'asc' if sort_by == 'vehicle_type' and sort_order == 'asc' else 'desc' if sort_by == 'vehicle_type' else '' }}"
+                                    onclick="sortTable('vehicle_type')">Type de Véhicule</th>
+                                <th class="sortable {{ 'asc' if sort_by == 'brand' and sort_order == 'asc' else 'desc' if sort_by == 'brand' else '' }}"
+                                    onclick="sortTable('brand')">Marque</th>
+                                <th class="sortable {{ 'asc' if sort_by == 'commercial_type' and sort_order == 'asc' else 'desc' if sort_by == 'commercial_type' else '' }}"
+                                    onclick="sortTable('commercial_type')">Type Commercial</th>
+                                <th class="sortable {{ 'asc' if sort_by == 'group_number' and sort_order == 'asc' else 'desc' if sort_by == 'group_number' else '' }}"
+                                    onclick="sortTable('group_number')">Numéro de Groupe</th>
+                                <th class="sortable {{ 'asc' if sort_by == 'license_plate' and sort_order == 'asc' else 'desc' if sort_by == 'license_plate' else '' }}"
+                                    onclick="sortTable('license_plate')">Plaque d'Immatriculation</th>
+                                <th class="sortable {{ 'asc' if sort_by == 'limit_periodic_inspection' and sort_order == 'asc' else 'desc' if sort_by == 'limit_periodic_inspection' else '' }}"
+                                    onclick="sortTable('limit_periodic_inspection')">Limite CT Périodique</th>
+                                <th class="sortable {{ 'asc' if sort_by == 'kilometer_periodic_inspection' and sort_order == 'asc' else 'desc' if sort_by == 'kilometer_periodic_inspection' else '' }}"
+                                    onclick="sortTable('kilometer_periodic_inspection')">Kilométrage CT Périodique</th>
+                                <th class="sortable {{ 'asc' if sort_by == 'limit_additional_inspection' and sort_order == 'asc' else 'desc' if sort_by == 'limit_additional_inspection' else '' }}"
+                                    onclick="sortTable('limit_additional_inspection')">Limite CT Additionnel</th>
+                                <th class="sortable {{ 'asc' if sort_by == 'kilometer_additional_inspection' and sort_order == 'asc' else 'desc' if sort_by == 'kilometer_additional_inspection' else '' }}"
+                                    onclick="sortTable('kilometer_additional_inspection')">Kilométrage CT Additionnel</th>
+                                <th class="sortable {{ 'asc' if sort_by == 'date_periodic_inspection' and sort_order == 'asc' else 'desc' if sort_by == 'date_periodic_inspection' else '' }}"
+                                    onclick="sortTable('date_periodic_inspection')">Date CT Périodique</th>
+                                <th class="sortable {{ 'asc' if sort_by == 'date_additional_inspection' and sort_order == 'asc' else 'desc' if sort_by == 'date_additional_inspection' else '' }}"
+                                    onclick="sortTable('date_additional_inspection')">Date CT Additionnel</th>
+                                <th>Commentaires</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for vehicle in vehicles %}
+                            <tr>
+                                <td>{{ vehicle.vehicle_type }}</td>
+                                <td>{{ vehicle.brand }}</td>
+                                <td>{{ vehicle.commercial_type }}</td>
+                                <td>{{ vehicle.group_number }}</td>
+                                <td>{{ vehicle.license_plate }}</td>
+                                <td>{{ vehicle.limit_periodic_inspection.strftime('%d/%m/%Y') if vehicle.limit_periodic_inspection }}</td>
+                                <td>{{ vehicle.kilometer_periodic_inspection }}</td>
+                                <td>{{ vehicle.limit_additional_inspection.strftime('%d/%m/%Y') if vehicle.limit_additional_inspection }}</td>
+                                <td>{{ vehicle.kilometer_additional_inspection }}</td>
+                                <td>{{ vehicle.date_periodic_inspection.strftime('%d/%m/%Y') if vehicle.date_periodic_inspection }}</td>
+                                <td>{{ vehicle.date_additional_inspection.strftime('%d/%m/%Y') if vehicle.date_additional_inspection }}</td>
+                                <td>{{ vehicle.comments }}</td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="{{ url_for('edit_vehicle_1', id=vehicle.id) }}" class="btn btn-sm btn-warning">Modifier</a>
+                                        <button onclick="confirmDelete({{ vehicle.id }}, '{{ vehicle.license_plate }}')" 
+                                                class="btn btn-sm btn-danger">Supprimer</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function sortTable(column) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentSort = urlParams.get('sort_by');
+        const currentOrder = urlParams.get('sort_order');
+        
+        let newOrder = 'asc';
+        if (currentSort === column && currentOrder === 'asc') {
+            newOrder = 'desc';
+        }
+        
+        urlParams.set('sort_by', column);
+        urlParams.set('sort_order', newOrder);
+        
+        // Preserve search term if it exists
+        const searchTerm = urlParams.get('search');
+        if (searchTerm) {
+            urlParams.set('search', searchTerm);
+        }
+        
+        window.location.href = `${window.location.pathname}?${urlParams.toString()}`;
+    }
+
+    function confirmDelete(id, licensePlate) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer le véhicule avec la plaque ' + licensePlate + ' ?')) {
+            window.location.href = "{{ url_for('delete_vehicle_route_1', id=0) }}".replace('0', id);
+        }
+    }
+    </script>
+    {% endblock %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
