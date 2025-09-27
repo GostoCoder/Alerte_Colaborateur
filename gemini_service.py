@@ -68,10 +68,10 @@ def generate_email_content(vehicle, notifications):
         Ta mission est d'envoyer des e-mails de rappel au mécanicien responsable de l'entretien des véhicules de l'entreprise, afin de l'informer des dates imminentes de contrôle technique pour chaque véhicule.
 
         Informations détaillées du Véhicule :
-        {chr(10).join(get_vehicle_details(notifications[0]['vehicle_data'])) if isinstance(notifications, list) and notifications else 'Aucune information disponible'}
+        {chr(10).join(get_vehicle_details(notifications[0]['row_data'])) if isinstance(notifications, list) and notifications and 'row_data' in notifications[0] else 'Aucune information disponible'}
         
         Notifications et Dates Limites :
-        {chr(10).join([f"- {n['type']} pour {get_vehicle_identifier(n['vehicle_data'])} prévu pour le {n['due_date']} : {n['message']}" for n in notifications]) if isinstance(notifications, list) else str(notifications)}
+        {chr(10).join([f"- {n.get('field', 'Type inconnu')} prévu pour le {n.get('due_date', 'Date inconnue')} : {n.get('message', '')}" for n in notifications]) if isinstance(notifications, list) else str(notifications)}
 
         Structure de l'email à générer :
 
@@ -117,11 +117,11 @@ def generate_email_content(vehicle, notifications):
         # For now, we'll use a fallback format
         
         # Fallback content
-        vehicle_data = notifications[0]['vehicle_data'] if isinstance(notifications, list) and notifications else {}
+        vehicle_data = notifications[0]['row_data'] if isinstance(notifications, list) and notifications and 'row_data' in notifications[0] else {}
         identifier = get_vehicle_identifier(vehicle_data)
         
         # Check if urgent for subject line
-        subject_prefix = "🚨 URGENT - IMMOBILISATION REQUISE" if is_urgent else "Rappel d'Inspection"
+        subject_prefix = "URGENT - IMMOBILISATION REQUISE" if is_urgent else "Rappel d'Inspection"
         subject = f"{subject_prefix} - {identifier}"
         
         vehicle_info = []
@@ -129,7 +129,7 @@ def generate_email_content(vehicle, notifications):
         
         if isinstance(notifications, list) and notifications:
             # Get vehicle info only once (from the first notification)
-            vdata = notifications[0]['vehicle_data']
+            vdata = notifications[0]['row_data'] if 'row_data' in notifications[0] else {}
             vehicle_info.append(f"""
 ╔══════════════════════════════════════════════╗
 ║         INFORMATIONS DU VÉHICULE             ║
@@ -144,7 +144,7 @@ def generate_email_content(vehicle, notifications):
             # Process all notifications
             for n in notifications:
                 urgency_flag = "🚨 URGENT" if n.get('days_until', 999) <= 4 else ""
-                notifications_text.append(f"- {urgency_flag} {n['type']} prévu pour le {n['due_date']} : {n['message']}")
+                notifications_text.append(f"- {urgency_flag} {n.get('field', 'Type inconnu')} prévu pour le {n['due_date']} : {n['message']}")
         else:
             vehicle_info = ["Informations du véhicule non disponibles"]
             notifications_text = [str(notifications)]

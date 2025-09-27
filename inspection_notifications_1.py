@@ -1,6 +1,7 @@
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.header import Header
 from datetime import datetime, timedelta, date
 import os
 from dotenv import load_dotenv
@@ -8,10 +9,10 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import create_engine, and_, or_
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
-from models_1 import Vehicle, Base
+from sqlalchemy import MetaData, Table
 import logging
 from gemini_service import generate_email_content
-#from chatgpt_service import generate_email_content
+# ChatGPT service is unused and import removed
 
 # Set up logging
 logging.basicConfig(
@@ -30,6 +31,7 @@ SENDER_EMAIL = os.getenv('SENDER_EMAIL')
 SENDER_PASSWORD = os.getenv('SENDER_PASSWORD')
 RECIPIENT_EMAIL = os.getenv('RECIPIENT_EMAIL')
 RECIPIENT_EMAIL_2 = os.getenv('RECIPIENT_EMAIL_2')
+NOTIFY_DRY_RUN = os.getenv('NOTIFY_DRY_RUN', 'false').lower() == 'true'
 
 # Validate email configuration
 if not all([SMTP_SERVER, SMTP_PORT, SENDER_EMAIL, SENDER_PASSWORD, RECIPIENT_EMAIL]):
@@ -38,6 +40,8 @@ if not all([SMTP_SERVER, SMTP_PORT, SENDER_EMAIL, SENDER_PASSWORD, RECIPIENT_EMA
 if not RECIPIENT_EMAIL_2:
     logger.warning("RECIPIENT_EMAIL_2 not configured. Second recipient notifications will be disabled.")
 
+if SMTP_PORT is None:
+    raise ValueError("SMTP_PORT must be set in .env")
 try:
     SMTP_PORT = int(SMTP_PORT)
 except (TypeError, ValueError):
@@ -87,144 +91,178 @@ def validate_date(date_obj):
     max_future_date = get_current_date() + timedelta(days=365*2)  # 2 years max
     return date_obj <= max_future_date
 
+def _parse_date_string(s):
+    import re
+    s = str(s).strip().replace('\xa0', ' ')
+    tokens = s.split()
+    candidates = [s]
+    if tokens:
+        candidates.append(tokens[0])
+    formats = [
+        "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d", "%d.%m.%Y",
+        "%d/%m/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"
+    ]
+    for candidate in candidates:
+        for fmt in formats:
+            try:
+                return datetime.strptime(candidate, fmt).date()
+            except Exception:
+                continue
+        try:
+            return datetime.fromisoformat(candidate).date()
+        except Exception:
+            continue
+    try:
+        from dateutil.parser import parse as dateutil_parse
+        return dateutil_parse(s).date()
+    except Exception:
+        pass
+    return None
+
 def check_inspection_dates():
-    """Check vehicle inspection dates and send notifications if needed."""
+    """Check all date fields in all tables and send notifications if needed."""
     db = None
     try:
         db = get_db()
         today = get_current_date()
-        two_weeks_later = today + timedelta(days=14)
-        
-        logger.info(f"Checking inspections between {today} and {two_weeks_later}")
-        
-        # Query vehicles that need inspection notifications using SQLAlchemy
-        # Fixed: Use IS NULL instead of == None, and separate OR conditions
-        vehicles = db.query(Vehicle).filter(
-            or_(
-                and_(
-                    Vehicle.limit_periodic_inspection >= today,
-                    Vehicle.limit_periodic_inspection <= two_weeks_later,
-                    Vehicle.date_periodic_inspection.is_(None)
-                ),
-                and_(
-                    Vehicle.limit_additional_inspection >= today,
-                    Vehicle.limit_additional_inspection <= two_weeks_later, 
-                    Vehicle.date_additional_inspection.is_(None)
-                )
-            )
-        ).all()
-        
-        if not vehicles:
+        window_end = today + timedelta(days=14)
+        logger.info(f"Checking all date fields between {today} and {window_end} (inclusive)")
+
+        metadata = MetaData()
+        metadata.reflect(bind=engine)
+        notifications_by_row = {}
+
+        for table_name, table in metadata.tables.items():
+            logger.info(f"Scanning table: {table_name}")
+            # Find date-like columns
+            date_columns = [col for col in table.columns if (
+                "date" in col.name.lower() or "limit" in col.name.lower() or "expiry" in col.name.lower() or "ifo" in col.name.lower() or "caces" in col.name.lower() or "airr" in col.name.lower() or "hgo" in col.name.lower() or "bo" in col.name.lower() or "visite_med" in col.name.lower() or "brevet_secour" in col.name.lower()
+            )]
+            # For each row in the table
+            rows = db.execute(table.select()).fetchall()
+            for row in rows:
+                # Robust conversion for SQLAlchemy Row objects
+                if hasattr(row, "_mapping"):
+                    row_dict = dict(row._mapping)
+                elif hasattr(row, "items"):
+                    row_dict = dict(row.items())
+                else:
+                    row_dict = {col.name: row[idx] for idx, col in enumerate(table.columns)}
+                due_items = []
+                for col in date_columns:
+                    date_val = row_dict.get(col.name)
+                    if not date_val:
+                        continue
+                    # Try to parse date
+                    try:
+                        if isinstance(date_val, str):
+                            date_obj = _parse_date_string(date_val)
+                        elif isinstance(date_val, datetime):
+                            date_obj = date_val.date()
+                        elif isinstance(date_val, date):
+                            date_obj = date_val
+                        else:
+                            continue
+                        if date_obj is None:
+                            logger.warning(f"Could not parse date for {col.name} in {table_name}: {date_val}")
+                            continue
+                    except Exception:
+                        logger.warning(f"Could not parse date for {col.name} in {table_name}: {date_val}")
+                        continue
+                    if not validate_date(date_obj):
+                        continue
+                    # Inclusive range check
+                    if today <= date_obj <= window_end:
+                        # If there is a matching completion column, check if completed
+                        completion_col = None
+                        if col.name.startswith("limit_"):
+                            completion_col = "date_" + col.name[len("limit_"):]
+                        elif col.name.startswith("Limit "):
+                            completion_col = "Date " + col.name[len("Limit "):]
+                        if completion_col and completion_col in row_dict and row_dict[completion_col]:
+                            continue  # Already completed
+                        days_until = (date_obj - today).days
+                        due_items.append({
+                            "field": col.name,
+                            "due_date": date_obj.strftime("%Y-%m-%d"),
+                            "days_until": days_until,
+                            "comments": row_dict.get("comments", ""),
+                            "message": f"{col.name} due in {days_until} days"
+                        })
+                if due_items:
+                    notifications_by_row[(table_name, row_dict.get("id"))] = {
+                        "table": table_name,
+                        "row_id": row_dict.get("id"),
+                        "row_data": row_dict,
+                        "due_items": due_items
+                    }
+
+        if not notifications_by_row:
             logger.info(f"No notifications needed for {today}")
             return
-        
-        logger.info(f"Found {len(vehicles)} vehicles requiring notifications")
-        
-        # Prepare and send emails
-        try:
-            logger.info(f"Connecting to SMTP server {SMTP_SERVER}:{SMTP_PORT} using SSL...")
-            with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=30) as server:
-                logger.info("SMTP_SSL connection established, attempting login...")
+
+        logger.info(f"Found {len(notifications_by_row)} rows requiring notifications")
+
+        # Prepare and send emails (or log if dry-run)
+        for key, notif in notifications_by_row.items():
+            subject, body = generate_email_content(notif["row_data"], notif["due_items"])
+            if NOTIFY_DRY_RUN:
+                logger.info(f"[DRY RUN] Would send email to {RECIPIENT_EMAIL} for table {notif['table']} row {notif['row_id']}:\nSubject: {subject}\nBody:\n{body}")
+                urgent_items = [item for item in notif["due_items"] if item["days_until"] <= 4]
+                if RECIPIENT_EMAIL_2 and urgent_items:
+                    logger.info(f"[DRY RUN] Would send URGENT email to {RECIPIENT_EMAIL_2} for table {notif['table']} row {notif['row_id']}")
+                continue
+            try:
+                smtp_server = str(SMTP_SERVER) if SMTP_SERVER is not None else ""
+                smtp_port = int(SMTP_PORT) if SMTP_PORT is not None else 0
+                if not SMTP_SERVER or not SMTP_PORT or smtp_server == "" or smtp_port == 0:
+                    logger.error("SMTP server or port not configured. Skipping email send.")
+                    continue
+                logger.info(f"Connecting to SMTP server {SMTP_SERVER}:{SMTP_PORT} using SSL...")
+                import socket
                 try:
-                    server.login(SENDER_EMAIL, SENDER_PASSWORD)
-                    logger.info("SMTP login successful")
-                except smtplib.SMTPAuthenticationError as e:
-                    logger.error(f"Email authentication failed: {e}")
-                    return
-                
-                for vehicle in vehicles:
-                    try:
-                        notifications = []
-                        
-                        # Check periodic inspection
-                        if (vehicle.limit_periodic_inspection and 
-                            validate_date(vehicle.limit_periodic_inspection) and
-                            today <= vehicle.limit_periodic_inspection <= two_weeks_later and 
-                            not vehicle.date_periodic_inspection):
-                            days_until = (vehicle.limit_periodic_inspection - today).days
-                            notifications.append({
-                                'type': 'Contrôle technique périodique',
-                                'vehicle_data': {
-                                    'id': vehicle.id,
-                                    'license_plate': vehicle.license_plate,
-                                    'vehicle_type': vehicle.vehicle_type,
-                                    'brand': vehicle.brand,
-                                    'commercial_type': vehicle.commercial_type,
-                                    'group_number': vehicle.group_number,
-                                    'limit_periodic_inspection': vehicle.limit_periodic_inspection.strftime('%Y-%m-%d'),
-                                    'kilometer_periodic_inspection': vehicle.kilometer_periodic_inspection,
-                                    'limit_additional_inspection': vehicle.limit_additional_inspection.strftime('%Y-%m-%d') if vehicle.limit_additional_inspection else None,
-                                    'kilometer_additional_inspection': vehicle.kilometer_additional_inspection,
-                                    'date_periodic_inspection': None,
-                                    'date_additional_inspection': vehicle.date_additional_inspection.strftime('%Y-%m-%d') if vehicle.date_additional_inspection else None,
-                                    'comments': vehicle.comments,
-                                    'created_at': vehicle.created_at.strftime('%Y-%m-%d %H:%M:%S') if vehicle.created_at else None,
-                                    'updated_at': vehicle.updated_at.strftime('%Y-%m-%d %H:%M:%S') if vehicle.updated_at else None
-                                },
-                                'due_date': vehicle.limit_periodic_inspection.strftime('%Y-%m-%d'),
-                                'message': f'Contrôle technique périodique à effectuer dans {days_until} jours',
-                                'days_until': days_until,
-                                'comments': vehicle.comments
-                            })
-                        
-                        # Check additional inspection
-                        if (vehicle.limit_additional_inspection and 
-                            validate_date(vehicle.limit_additional_inspection) and
-                            today <= vehicle.limit_additional_inspection <= two_weeks_later and 
-                            not vehicle.date_additional_inspection):
-                            days_until = (vehicle.limit_additional_inspection - today).days
-                            notifications.append({
-                                'type': 'Contrôle technique complémentaire',
-                                'vehicle_data': {
-                                    'id': vehicle.id,
-                                    'license_plate': vehicle.license_plate,
-                                    'vehicle_type': vehicle.vehicle_type,
-                                    'brand': vehicle.brand,
-                                    'commercial_type': vehicle.commercial_type,
-                                    'group_number': vehicle.group_number,
-                                    'limit_periodic_inspection': vehicle.limit_periodic_inspection.strftime('%Y-%m-%d') if vehicle.limit_periodic_inspection else None,
-                                    'kilometer_periodic_inspection': vehicle.kilometer_periodic_inspection,
-                                    'limit_additional_inspection': vehicle.limit_additional_inspection.strftime('%Y-%m-%d'),
-                                    'kilometer_additional_inspection': vehicle.kilometer_additional_inspection,
-                                    'date_periodic_inspection': vehicle.date_periodic_inspection.strftime('%Y-%m-%d') if vehicle.date_periodic_inspection else None,
-                                    'date_additional_inspection': None,
-                                    'comments': vehicle.comments,
-                                    'created_at': vehicle.created_at.strftime('%Y-%m-%d %H:%M:%S') if vehicle.created_at else None,
-                                    'updated_at': vehicle.updated_at.strftime('%Y-%m-%d %H:%M:%S') if vehicle.updated_at else None
-                                },
-                                'due_date': vehicle.limit_additional_inspection.strftime('%Y-%m-%d'),
-                                'message': f'Contrôle technique complémentaire à effectuer dans {days_until} jours',
-                                'days_until': days_until,
-                                'comments': vehicle.comments
-                            })
-                        
-                        if notifications:
-                            send_notification_email(server, vehicle, notifications)
-                    
-                    except Exception as e:
-                        logger.error(f"Error processing vehicle {vehicle.license_plate}: {e}")
-                        continue
-                        
-        except smtplib.SMTPServerDisconnected as e:
-            logger.error(f"SMTP server disconnected: {e}. Email notifications will be skipped.")
-            logger.info("Continuing without sending emails - notifications have been identified but not sent.")
-            return
-        except smtplib.SMTPConnectError as e:
-            logger.error(f"SMTP connection error: {e}. Email notifications will be skipped.")
-            logger.info("Continuing without sending emails - notifications have been identified but not sent.")
-            return
-        except ConnectionRefusedError as e:
-            logger.error(f"Connection refused: {e}. Check if the SMTP server is accessible.")
-            logger.info("Continuing without sending emails - notifications have been identified but not sent.")
-            return
-        except (smtplib.SMTPException, ConnectionError, OSError) as e:
-            logger.error(f"SMTP connection failed: {e}. Email notifications will be skipped.")
-            logger.info("Continuing without sending emails - notifications have been identified but not sent.")
-            return
-        except Exception as e:
-            logger.error(f"Unexpected error with email server: {e}")
-            return
-                
+                    with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=30) as server:
+                        logger.info("SMTP_SSL connection established, attempting login...")
+                        try:
+                            server.login(str(SENDER_EMAIL), str(SENDER_PASSWORD))
+                            logger.info("SMTP login successful")
+                        except smtplib.SMTPAuthenticationError as e:
+                            logger.error(f"Email authentication failed: {e}")
+                            continue
+
+                        from email.utils import formataddr
+                        msg = MIMEMultipart()
+                        msg['From'] = formataddr((str(Header("Alerte Collaborateur", 'utf-8')), str(SENDER_EMAIL or "")))
+                        msg['To'] = formataddr((str(Header("", 'utf-8')), str(RECIPIENT_EMAIL or "")))
+                        msg['Subject'] = str(Header(str(subject or ""), 'utf-8'))
+                        msg.attach(MIMEText(str(body), 'plain', 'utf-8'))
+                        try:
+                            server.send_message(msg, from_addr=str(SENDER_EMAIL or ""), to_addrs=[str(RECIPIENT_EMAIL or "")], mail_options=('SMTPUTF8',))
+                            logger.info(f"Notification email sent to {RECIPIENT_EMAIL} for table {notif['table']} row {notif['row_id']}")
+                        except Exception as e:
+                            logger.error(f"Email sendmail error: {e}\nFrom: {repr(msg['From'])}\nTo: {repr(msg['To'])}\nSubject: {repr(msg['Subject'])}\nBody: {repr(body)}")
+                        # Urgent notification to second recipient
+                        urgent_items = [item for item in notif["due_items"] if item["days_until"] <= 4]
+                        if RECIPIENT_EMAIL_2 and urgent_items:
+                            urgent_subject = f"URGENT - {subject}"
+                            urgent_body = body
+                            msg2 = MIMEMultipart()
+                            msg2['From'] = formataddr((str(Header("Alerte Collaborateur", 'utf-8')), str(SENDER_EMAIL or "")))
+                            msg2['To'] = formataddr((str(Header("", 'utf-8')), str(RECIPIENT_EMAIL_2 or "")))
+                            msg2['Subject'] = str(Header(str(urgent_subject or ""), 'utf-8'))
+                            msg2.attach(MIMEText(str(urgent_body), 'plain', 'utf-8'))
+                            try:
+                                server.send_message(msg2, from_addr=str(SENDER_EMAIL or ""), to_addrs=[str(RECIPIENT_EMAIL_2 or "")], mail_options=('SMTPUTF8',))
+                                logger.info(f"Urgent notification email sent to {RECIPIENT_EMAIL_2} for table {notif['table']} row {notif['row_id']}")
+                            except Exception as e:
+                                logger.error(f"Urgent email sendmail error: {e}\nFrom: {repr(msg2['From'])}\nTo: {repr(msg2['To'])}\nSubject: {repr(msg2['Subject'])}\nBody: {repr(urgent_body)}")
+                except (socket.gaierror, smtplib.SMTPConnectError, OSError) as e:
+                    logger.error(f"SMTP connection failed for host {smtp_server}:{smtp_port}: {e}. Skipping email send.")
+                    continue
+            except Exception as e:
+                logger.error(f"Error sending notification for table {notif['table']} row {notif['row_id']}: {e}")
+                continue
+
     except Exception as e:
         logger.error(f"Error in check_inspection_dates: {e}")
     finally:
@@ -238,14 +276,17 @@ def send_notification_email(server, vehicle, notifications):
         subject, body = generate_email_content(vehicle, notifications)
         
         # Always send to first recipient
+        from email.utils import formataddr
         msg = MIMEMultipart()
-        msg['From'] = SENDER_EMAIL
-        msg['To'] = RECIPIENT_EMAIL
-        msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
-        
-        server.send_message(msg)
-        logger.info(f"Notification email sent to {RECIPIENT_EMAIL} for vehicle {vehicle.license_plate}")
+        msg['From'] = formataddr((str(Header("Alerte Collaborateur", 'utf-8')), str(SENDER_EMAIL or "")))
+        msg['To'] = formataddr((str(Header("", 'utf-8')), str(RECIPIENT_EMAIL or "")))
+        msg['Subject'] = str(Header(str(subject or ""), 'utf-8'))
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+        try:
+            server.send_message(msg, from_addr=str(SENDER_EMAIL or ""), to_addrs=[str(RECIPIENT_EMAIL or "")])
+            logger.info(f"Notification email sent to {RECIPIENT_EMAIL} for vehicle {vehicle.license_plate}")
+        except Exception as e:
+            logger.error(f"Email sendmail error: {e}\nFrom: {repr(msg['From'])}\nTo: {repr(msg['To'])}\nSubject: {repr(msg['Subject'])}\nBody: {repr(body)}")
         
         # Check if second recipient should receive notification (within 4 days)
         if RECIPIENT_EMAIL_2:
@@ -256,13 +297,15 @@ def send_notification_email(server, vehicle, notifications):
                 urgent_subject, urgent_body = generate_email_content(vehicle, urgent_notifications)
                 
                 msg2 = MIMEMultipart()
-                msg2['From'] = SENDER_EMAIL
-                msg2['To'] = RECIPIENT_EMAIL_2
-                msg2['Subject'] = f"URGENT - {urgent_subject}"
-                msg2.attach(MIMEText(urgent_body, 'plain'))
-                
-                server.send_message(msg2)
-                logger.info(f"Urgent notification email sent to {RECIPIENT_EMAIL_2} for vehicle {vehicle.license_plate} ({len(urgent_notifications)} urgent inspection(s))")
+                msg2['From'] = formataddr((str(Header("Alerte Collaborateur", 'utf-8')), str(SENDER_EMAIL or "")))
+                msg2['To'] = formataddr((str(Header("", 'utf-8')), str(RECIPIENT_EMAIL_2 or "")))
+                msg2['Subject'] = str(Header(str(f"URGENT - {urgent_subject}" or ""), 'utf-8'))
+                msg2.attach(MIMEText(urgent_body, 'plain', 'utf-8'))
+                try:
+                    server.send_message(msg2, from_addr=str(SENDER_EMAIL or ""), to_addrs=[str(RECIPIENT_EMAIL_2 or "")])
+                    logger.info(f"Urgent notification email sent to {RECIPIENT_EMAIL_2} for vehicle {vehicle.license_plate} ({len(urgent_notifications)} urgent inspection(s))")
+                except Exception as e:
+                    logger.error(f"Urgent email sendmail error: {e}\nFrom: {repr(msg2['From'])}\nTo: {repr(msg2['To'])}\nSubject: {repr(msg2['Subject'])}\nBody: {repr(urgent_body)}")
         
     except Exception as e:
         logger.error(f"Failed to send notification email for vehicle {vehicle.license_plate}: {e}")
