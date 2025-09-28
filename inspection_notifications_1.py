@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, date
 import os
 from dotenv import load_dotenv
 from zoneinfo import ZoneInfo
-from sqlalchemy import create_engine, and_, or_
+from sqlalchemy import create_engine, and_, or_, types
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import MetaData, Table
@@ -59,6 +59,12 @@ except Exception as e:
 # Time zone configuration
 TIMEZONE = ZoneInfo("Europe/Paris")
 
+def clean_value(value):
+    """Clean a string value by replacing non-breaking spaces."""
+    if isinstance(value, str):
+        return value.replace('\xa0', ' ')
+    return value
+
 def get_current_date():
     """Get the current date in the correct timezone."""
     try:
@@ -93,7 +99,8 @@ def validate_date(date_obj):
 
 def _parse_date_string(s):
     import re
-    s = str(s).strip().replace('\xa0', ' ')
+    s = str(s).strip()
+    s = clean_value(s)  # Use the cleaning function
     tokens = s.split()
     candidates = [s]
     if tokens:
@@ -134,20 +141,29 @@ def check_inspection_dates():
 
         for table_name, table in metadata.tables.items():
             logger.info(f"Scanning table: {table_name}")
-            # Find date-like columns
-            date_columns = [col for col in table.columns if (
-                "date" in col.name.lower() or "limit" in col.name.lower() or "expiry" in col.name.lower() or "ifo" in col.name.lower() or "caces" in col.name.lower() or "airr" in col.name.lower() or "hgo" in col.name.lower() or "bo" in col.name.lower() or "visite_med" in col.name.lower() or "brevet_secour" in col.name.lower()
-            )]
+            # Find date-like columns by type or name
+            date_columns = [
+                col for col in table.columns if (
+                    isinstance(col.type, (types.Date, types.DateTime)) or
+                    "date" in col.name.lower() or "limit" in col.name.lower() or
+                    "expiry" in col.name.lower() or "ifo" in col.name.lower() or
+                    "caces" in col.name.lower() or "airr" in col.name.lower() or
+                    "hgo" in col.name.lower() or "bo" in col.name.lower() or
+                    "visite_med" in col.name.lower() or "brevet_secour" in col.name.lower()
+                )
+            ]
+            if date_columns:
+                logger.info(f"  Identified date columns: {[col.name for col in date_columns]}")
             # For each row in the table
             rows = db.execute(table.select()).fetchall()
             for row in rows:
-                # Robust conversion for SQLAlchemy Row objects
+                # Robust conversion for SQLAlchemy Row objects, with data cleaning
                 if hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)
+                    row_dict = {k: clean_value(v) for k, v in row._mapping.items()}
                 elif hasattr(row, "items"):
-                    row_dict = dict(row.items())
+                    row_dict = {k: clean_value(v) for k, v in row.items()}
                 else:
-                    row_dict = {col.name: row[idx] for idx, col in enumerate(table.columns)}
+                    row_dict = {col.name: clean_value(row[idx]) for idx, col in enumerate(table.columns)}
                 due_items = []
                 for col in date_columns:
                     date_val = row_dict.get(col.name)
@@ -186,7 +202,7 @@ def check_inspection_dates():
                             "field": col.name,
                             "due_date": date_obj.strftime("%Y-%m-%d"),
                             "days_until": days_until,
-                            "comments": row_dict.get("comments", ""),
+                            "comments": clean_value(row_dict.get("comments", "")),
                             "message": f"{col.name} due in {days_until} days"
                         })
                 if due_items:
@@ -206,6 +222,11 @@ def check_inspection_dates():
         # Prepare and send emails (or log if dry-run)
         for key, notif in notifications_by_row.items():
             subject, body = generate_email_content(notif["row_data"], notif["due_items"])
+
+            # Clean the output from the AI service to prevent encoding errors
+            subject = clean_value(subject)
+            body = clean_value(body)
+            
             if NOTIFY_DRY_RUN:
                 logger.info(f"[DRY RUN] Would send email to {RECIPIENT_EMAIL} for table {notif['table']} row {notif['row_id']}:\nSubject: {subject}\nBody:\n{body}")
                 urgent_items = [item for item in notif["due_items"] if item["days_until"] <= 4]
@@ -224,43 +245,68 @@ def check_inspection_dates():
                     with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=30) as server:
                         logger.info("SMTP_SSL connection established, attempting login...")
                         try:
-                            server.login(str(SENDER_EMAIL), str(SENDER_PASSWORD))
-                            logger.info("SMTP login successful")
+                            # Clean credentials to remove non-breaking spaces or similar characters
+                            safe_sender_email = clean_value(str(SENDER_EMAIL or ""))
+                            safe_sender_password = clean_value(str(SENDER_PASSWORD or ""))
+                            try:
+                                server.login(safe_sender_email, safe_sender_password)
+                                logger.info("SMTP login successful")
+                            except UnicodeEncodeError as e:
+                                logger.error(f"SMTP login failed due to non-ASCII credentials: {e}")
+                                continue
                         except smtplib.SMTPAuthenticationError as e:
                             logger.error(f"Email authentication failed: {e}")
                             continue
 
                         from email.utils import formataddr
+                        # Clean header and body values to avoid ASCII encoding errors
+                        safe_from = clean_value(str(SENDER_EMAIL or ""))
+                        safe_to = clean_value(str(RECIPIENT_EMAIL or ""))
+                        safe_subject = clean_value(str(subject or ""))
+                        safe_body = clean_value(str(body))
                         msg = MIMEMultipart()
-                        msg['From'] = formataddr((str(Header("Alerte Collaborateur", 'utf-8')), str(SENDER_EMAIL or "")))
-                        msg['To'] = formataddr((str(Header("", 'utf-8')), str(RECIPIENT_EMAIL or "")))
-                        msg['Subject'] = str(Header(str(subject or ""), 'utf-8'))
-                        msg.attach(MIMEText(str(body), 'plain', 'utf-8'))
+                        msg['From'] = formataddr((str(Header("Alerte Collaborateur", 'utf-8')), safe_from))
+                        msg['To'] = formataddr((str(Header("", 'utf-8')), safe_to))
+                        msg['Subject'] = str(Header(safe_subject, 'utf-8'))
+                        msg.attach(MIMEText(safe_body, 'plain', 'utf-8'))
                         try:
-                            server.send_message(msg, from_addr=str(SENDER_EMAIL or ""), to_addrs=[str(RECIPIENT_EMAIL or "")], mail_options=('SMTPUTF8',))
+                            # Prefer send_message with SMTPUTF8; if that fails (server doesn't support UTF-8 headers
+                            # or encoding fails), fallback to sending raw bytes with sendmail.
+                            try:
+                                server.send_message(msg, from_addr=safe_from, to_addrs=[safe_to], mail_options=('SMTPUTF8',))
+                            except (UnicodeEncodeError, smtplib.SMTPException):
+                                server.sendmail(safe_from, [safe_to], msg.as_bytes())
                             logger.info(f"Notification email sent to {RECIPIENT_EMAIL} for table {notif['table']} row {notif['row_id']}")
                         except Exception as e:
-                            logger.error(f"Email sendmail error: {e}\nFrom: {repr(msg['From'])}\nTo: {repr(msg['To'])}\nSubject: {repr(msg['Subject'])}\nBody: {repr(body)}")
+                            logger.error(f"Email sendmail error: {e}\nFrom: {repr(msg['From'])}\nTo: {repr(msg['To'])}\nSubject: {repr(msg['Subject'])}\nBody: {repr(safe_body)}")
                         # Urgent notification to second recipient
                         urgent_items = [item for item in notif["due_items"] if item["days_until"] <= 4]
                         if RECIPIENT_EMAIL_2 and urgent_items:
                             urgent_subject = f"URGENT - {subject}"
                             urgent_body = body
                             msg2 = MIMEMultipart()
-                            msg2['From'] = formataddr((str(Header("Alerte Collaborateur", 'utf-8')), str(SENDER_EMAIL or "")))
-                            msg2['To'] = formataddr((str(Header("", 'utf-8')), str(RECIPIENT_EMAIL_2 or "")))
-                            msg2['Subject'] = str(Header(str(urgent_subject or ""), 'utf-8'))
-                            msg2.attach(MIMEText(str(urgent_body), 'plain', 'utf-8'))
+                            # Clean header and body values to avoid ASCII encoding errors
+                            safe_from2 = clean_value(str(SENDER_EMAIL or ""))
+                            safe_to2 = clean_value(str(RECIPIENT_EMAIL_2 or ""))
+                            safe_urgent_subject = clean_value(str(urgent_subject or ""))
+                            safe_urgent_body = clean_value(str(urgent_body))
+                            msg2['From'] = formataddr((str(Header("Alerte Collaborateur", 'utf-8')), safe_from2))
+                            msg2['To'] = formataddr((str(Header("", 'utf-8')), safe_to2))
+                            msg2['Subject'] = str(Header(safe_urgent_subject, 'utf-8'))
+                            msg2.attach(MIMEText(safe_urgent_body, 'plain', 'utf-8'))
                             try:
-                                server.send_message(msg2, from_addr=str(SENDER_EMAIL or ""), to_addrs=[str(RECIPIENT_EMAIL_2 or "")], mail_options=('SMTPUTF8',))
+                                try:
+                                    server.send_message(msg2, from_addr=safe_from2, to_addrs=[safe_to2], mail_options=('SMTPUTF8',))
+                                except (UnicodeEncodeError, smtplib.SMTPException):
+                                    server.sendmail(safe_from2, [safe_to2], msg2.as_bytes())
                                 logger.info(f"Urgent notification email sent to {RECIPIENT_EMAIL_2} for table {notif['table']} row {notif['row_id']}")
                             except Exception as e:
-                                logger.error(f"Urgent email sendmail error: {e}\nFrom: {repr(msg2['From'])}\nTo: {repr(msg2['To'])}\nSubject: {repr(msg2['Subject'])}\nBody: {repr(urgent_body)}")
+                                logger.error(f"Urgent email sendmail error: {e}\nFrom: {repr(msg2['From'])}\nTo: {repr(msg2['To'])}\nSubject: {repr(msg2['Subject'])}\nBody: {repr(safe_urgent_body)}")
                 except (socket.gaierror, smtplib.SMTPConnectError, OSError) as e:
                     logger.error(f"SMTP connection failed for host {smtp_server}:{smtp_port}: {e}. Skipping email send.")
                     continue
             except Exception as e:
-                logger.error(f"Error sending notification for table {notif['table']} row {notif['row_id']}: {e}")
+                logger.exception(f"Error sending notification for table {notif['table']} row {notif['row_id']}")
                 continue
 
     except Exception as e:
@@ -281,12 +327,20 @@ def send_notification_email(server, vehicle, notifications):
         msg['From'] = formataddr((str(Header("Alerte Collaborateur", 'utf-8')), str(SENDER_EMAIL or "")))
         msg['To'] = formataddr((str(Header("", 'utf-8')), str(RECIPIENT_EMAIL or "")))
         msg['Subject'] = str(Header(str(subject or ""), 'utf-8'))
-        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+        # Clean and attach body/header to avoid encoding issues
+        safe_from_v = clean_value(str(SENDER_EMAIL or ""))
+        safe_to_v = clean_value(str(RECIPIENT_EMAIL or ""))
+        safe_subject_v = clean_value(str(subject or ""))
+        safe_body_v = clean_value(str(body))
+        msg.attach(MIMEText(safe_body_v, 'plain', 'utf-8'))
         try:
-            server.send_message(msg, from_addr=str(SENDER_EMAIL or ""), to_addrs=[str(RECIPIENT_EMAIL or "")])
+            try:
+                server.send_message(msg, from_addr=safe_from_v, to_addrs=[safe_to_v], mail_options=('SMTPUTF8',))
+            except (UnicodeEncodeError, smtplib.SMTPException):
+                server.sendmail(safe_from_v, [safe_to_v], msg.as_bytes())
             logger.info(f"Notification email sent to {RECIPIENT_EMAIL} for vehicle {vehicle.license_plate}")
         except Exception as e:
-            logger.error(f"Email sendmail error: {e}\nFrom: {repr(msg['From'])}\nTo: {repr(msg['To'])}\nSubject: {repr(msg['Subject'])}\nBody: {repr(body)}")
+            logger.error(f"Email sendmail error: {e}\nFrom: {repr(msg['From'])}\nTo: {repr(msg['To'])}\nSubject: {repr(msg['Subject'])}\nBody: {repr(safe_body_v)}")
         
         # Check if second recipient should receive notification (within 4 days)
         if RECIPIENT_EMAIL_2:
@@ -297,15 +351,23 @@ def send_notification_email(server, vehicle, notifications):
                 urgent_subject, urgent_body = generate_email_content(vehicle, urgent_notifications)
                 
                 msg2 = MIMEMultipart()
-                msg2['From'] = formataddr((str(Header("Alerte Collaborateur", 'utf-8')), str(SENDER_EMAIL or "")))
-                msg2['To'] = formataddr((str(Header("", 'utf-8')), str(RECIPIENT_EMAIL_2 or "")))
-                msg2['Subject'] = str(Header(str(f"URGENT - {urgent_subject}" or ""), 'utf-8'))
-                msg2.attach(MIMEText(urgent_body, 'plain', 'utf-8'))
+                # Clean header and body values to avoid encoding issues
+                safe_from_v2 = clean_value(str(SENDER_EMAIL or ""))
+                safe_to_v2 = clean_value(str(RECIPIENT_EMAIL_2 or ""))
+                safe_urgent_subject_v = clean_value(str(f"URGENT - {urgent_subject}" or ""))
+                safe_urgent_body_v = clean_value(str(urgent_body))
+                msg2['From'] = formataddr((str(Header("Alerte Collaborateur", 'utf-8')), safe_from_v2))
+                msg2['To'] = formataddr((str(Header("", 'utf-8')), safe_to_v2))
+                msg2['Subject'] = str(Header(safe_urgent_subject_v, 'utf-8'))
+                msg2.attach(MIMEText(safe_urgent_body_v, 'plain', 'utf-8'))
                 try:
-                    server.send_message(msg2, from_addr=str(SENDER_EMAIL or ""), to_addrs=[str(RECIPIENT_EMAIL_2 or "")])
+                    try:
+                        server.send_message(msg2, from_addr=safe_from_v2, to_addrs=[safe_to_v2], mail_options=('SMTPUTF8',))
+                    except (UnicodeEncodeError, smtplib.SMTPException):
+                        server.sendmail(safe_from_v2, [safe_to_v2], msg2.as_bytes())
                     logger.info(f"Urgent notification email sent to {RECIPIENT_EMAIL_2} for vehicle {vehicle.license_plate} ({len(urgent_notifications)} urgent inspection(s))")
                 except Exception as e:
-                    logger.error(f"Urgent email sendmail error: {e}\nFrom: {repr(msg2['From'])}\nTo: {repr(msg2['To'])}\nSubject: {repr(msg2['Subject'])}\nBody: {repr(urgent_body)}")
+                    logger.error(f"Urgent email sendmail error: {e}\nFrom: {repr(msg2['From'])}\nTo: {repr(msg2['To'])}\nSubject: {repr(msg2['Subject'])}\nBody: {repr(safe_urgent_body_v)}")
         
     except Exception as e:
         logger.error(f"Failed to send notification email for vehicle {vehicle.license_plate}: {e}")
