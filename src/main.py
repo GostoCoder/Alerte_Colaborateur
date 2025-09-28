@@ -10,7 +10,7 @@ from crud_1 import (
     get_collaborateurs,
     update_collaborateur,
     delete_collaborateur,
-    get_db
+    get_db,
 )
 from models_1 import Collaborateur
 from inspection_notifications_1 import check_inspection_dates
@@ -23,7 +23,7 @@ from zoneinfo import ZoneInfo
 app = FastAPI(
     title="Collaborateurs API",
     description="API for managing collaborateurs and sending notifications.",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # Allow CORS for all origins (adjust as needed)
@@ -34,6 +34,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Start daily notification scheduler in a background thread
 def run_scheduler():
@@ -50,8 +51,10 @@ def run_scheduler():
         schedule.run_pending()
         time.sleep(30)
 
+
 scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
 scheduler_thread.start()
+
 
 # Pydantic models
 class CollaborateurBase(BaseModel):
@@ -64,8 +67,10 @@ class CollaborateurBase(BaseModel):
     visite_med: Optional[str] = Field(None, example="2025-01-01")
     brevet_secour: Optional[str] = Field(None, example="2025-01-01")
 
+
 class CollaborateurCreate(CollaborateurBase):
     pass
+
 
 class CollaborateurUpdate(BaseModel):
     nom: Optional[str] = None
@@ -77,11 +82,13 @@ class CollaborateurUpdate(BaseModel):
     visite_med: Optional[str] = None
     brevet_secour: Optional[str] = None
 
+
 class CollaborateurResponse(CollaborateurBase):
     id: int
 
     class Config:
         orm_mode = True
+
 
 # Dependency for DB session
 def get_db_dep():
@@ -90,6 +97,7 @@ def get_db_dep():
         yield db
     finally:
         db.close()
+
 
 # Manual notification trigger endpoint
 @app.post("/notifications/send", status_code=200)
@@ -100,8 +108,13 @@ def send_notifications():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Notification error: {e}")
 
+
 # POST /collaborateurs : Add a collaborator
-@app.post("/collaborateurs", response_model=CollaborateurResponse, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/collaborateurs",
+    response_model=CollaborateurResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def add_collaborateur(collab: CollaborateurCreate, db: Session = Depends(get_db_dep)):
     try:
         db_collab = create_collaborateur(
@@ -113,11 +126,14 @@ def add_collaborateur(collab: CollaborateurCreate, db: Session = Depends(get_db_
             airr=collab.airr,
             hgo_bo=collab.hgo_bo,
             visite_med=collab.visite_med,
-            brevet_secour=collab.brevet_secour
+            brevet_secour=collab.brevet_secour,
         )
         return db_collab
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating collaborateur: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error creating collaborateur: {str(e)}"
+        )
+
 
 # GET /collaborateurs : List collaborators
 @app.get("/collaborateurs", response_model=List[CollaborateurResponse])
@@ -127,13 +143,16 @@ def list_collaborateurs(
     search: Optional[str] = None,
     sort_by: Optional[str] = None,
     direction: str = "asc",
-    db: Session = Depends(get_db_dep)
+    db: Session = Depends(get_db_dep),
 ):
     try:
         collaborateurs = get_collaborateurs(db, skip, limit, search, sort_by, direction)
         return collaborateurs
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing collaborateurs: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error listing collaborateurs: {str(e)}"
+        )
+
 
 # GET /collaborateurs/{id} : Get collaborator details
 @app.get("/collaborateurs/{id}", response_model=CollaborateurResponse)
@@ -143,9 +162,12 @@ def get_collaborateur_detail(id: int, db: Session = Depends(get_db_dep)):
         raise HTTPException(status_code=404, detail="Collaborateur not found")
     return db_collab
 
+
 # PUT /collaborateurs/{id} : Update a collaborator
 @app.put("/collaborateurs/{id}", response_model=CollaborateurResponse)
-def update_collaborateur_detail(id: int, collab: CollaborateurUpdate, db: Session = Depends(get_db_dep)):
+def update_collaborateur_detail(
+    id: int, collab: CollaborateurUpdate, db: Session = Depends(get_db_dep)
+):
     db_collab = update_collaborateur(
         db,
         collaborateur_id=id,
@@ -156,11 +178,12 @@ def update_collaborateur_detail(id: int, collab: CollaborateurUpdate, db: Sessio
         airr=collab.airr,
         hgo_bo=collab.hgo_bo,
         visite_med=collab.visite_med,
-        brevet_secour=collab.brevet_secour
+        brevet_secour=collab.brevet_secour,
     )
     if not db_collab:
         raise HTTPException(status_code=404, detail="Collaborateur not found")
     return db_collab
+
 
 # DELETE /collaborateurs/{id} : Delete a collaborator
 @app.delete("/collaborateurs/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -170,6 +193,7 @@ def delete_collaborateur_detail(id: int, db: Session = Depends(get_db_dep)):
         raise HTTPException(status_code=404, detail="Collaborateur not found")
     return JSONResponse(status_code=status.HTTP_204_NO_CONTENT, content={})
 
+
 # GET /notifications/send : Manually trigger notification sending
 @app.get("/notifications/send")
 def send_notifications():
@@ -177,4 +201,6 @@ def send_notifications():
         check_inspection_dates()
         return {"message": "Notifications sent successfully."}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error sending notifications: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error sending notifications: {str(e)}"
+        )

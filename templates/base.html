@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     {% block extra_css %}{% endblock %}
 </head>
-<body{% if request.endpoint not in ['add_vehicle_1', 'edit_vehicle_1'] %} style="background-image: url('/static/home_background.jpg'); background-size: cover;"{% endif %}>
+<body{% if request.endpoint not in ['add_collaborateur', 'edit_collaborateur'] %} style="background-image: url('/static/home_background.jpg'); background-size: cover;"{% endif %}>
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
@@ -26,8 +26,8 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'index_1' %}active{% endif %}" 
-                           href="{{ url_for('index_1') }}">Base de données 1</a>
+                        <a class="nav-link {% if request.endpoint == 'index_collaborateurs' %}active{% endif %}"
+                           href="{{ url_for('index_collaborateurs') }}">Collaborateurs</a>
                     </li>
                 </ul>
                 <ul class="navbar-nav ms-auto">

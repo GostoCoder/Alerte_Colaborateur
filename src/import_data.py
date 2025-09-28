@@ -5,8 +5,8 @@ import os
 
 # Define absolute paths
 current_dir = os.path.dirname(os.path.abspath(__file__))
-csv_path = os.path.join(current_dir, 'data_management_1.csv')
-db_path = os.path.join(current_dir, 'database_management_1.db')
+csv_path = os.path.join(current_dir, "data_management_1.csv")
+db_path = os.path.join(current_dir, "database_management_1.db")
 
 print(f"CSV path: {csv_path}")
 print(f"Database path: {db_path}")
@@ -34,7 +34,8 @@ except Exception as e:
 
 # Create the table if it doesn't exist
 try:
-    cursor.execute('''
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS vehicles_1 (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             vehicle_type TEXT NOT NULL,
@@ -52,11 +53,13 @@ try:
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-    ''')
+    """
+    )
     print("Table created/verified successfully")
 except Exception as e:
     print(f"Error creating table: {str(e)}")
     raise
+
 
 # Function to convert date format if not null
 def convert_date(date_str):
@@ -65,19 +68,24 @@ def convert_date(date_str):
     try:
         # Convert to datetime object and then to desired format
         date_obj = pd.to_datetime(date_str)
-        return date_obj.strftime('%Y-%m-%d')  # Changed to SQLite date format
+        return date_obj.strftime("%Y-%m-%d")  # Changed to SQLite date format
     except:
         return None
 
+
 # Convert date columns to the required format
-date_columns = ['Limit Periodic Inspection', 'Limit Additional Inspection', 
-                'Date Periodic Inspection', 'Date Additional Inspection']
+date_columns = [
+    "Limit Periodic Inspection",
+    "Limit Additional Inspection",
+    "Date Periodic Inspection",
+    "Date Additional Inspection",
+]
 for col in date_columns:
     df[col] = df[col].apply(convert_date)
 
 # Clear existing data
 try:
-    cursor.execute('DELETE FROM vehicles_1')
+    cursor.execute("DELETE FROM vehicles_1")
     print("Cleared existing data from table")
 except Exception as e:
     print(f"Error clearing table: {str(e)}")
@@ -87,7 +95,8 @@ except Exception as e:
 rows_inserted = 0
 try:
     for _, row in df.iterrows():
-        cursor.execute('''
+        cursor.execute(
+            """
             INSERT INTO vehicles_1 (
                 vehicle_type,
                 brand,
@@ -102,20 +111,30 @@ try:
                 date_additional_inspection,
                 comments
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            row['Vehicle type'],
-            row['Brand'],
-            row['Commercial type'],
-            row['Group number'] if pd.notna(row['Group number']) else None,
-            row['License plate'],
-            row['Limit Periodic Inspection'],
-            row['Kilometer Periodic Inspection'] if pd.notna(row['Kilometer Periodic Inspection']) else None,
-            row['Limit Additional Inspection'],
-            row['Kilometer Additional Inspection'] if pd.notna(row['Kilometer Additional Inspection']) else None,
-            row['Date Periodic Inspection'],
-            row['Date Additional Inspection'],
-            row['Comments'] if pd.notna(row['Comments']) else None
-        ))
+        """,
+            (
+                row["Vehicle type"],
+                row["Brand"],
+                row["Commercial type"],
+                row["Group number"] if pd.notna(row["Group number"]) else None,
+                row["License plate"],
+                row["Limit Periodic Inspection"],
+                (
+                    row["Kilometer Periodic Inspection"]
+                    if pd.notna(row["Kilometer Periodic Inspection"])
+                    else None
+                ),
+                row["Limit Additional Inspection"],
+                (
+                    row["Kilometer Additional Inspection"]
+                    if pd.notna(row["Kilometer Additional Inspection"])
+                    else None
+                ),
+                row["Date Periodic Inspection"],
+                row["Date Additional Inspection"],
+                row["Comments"] if pd.notna(row["Comments"]) else None,
+            ),
+        )
         rows_inserted += 1
     print(f"Inserted {rows_inserted} rows")
 except Exception as e:

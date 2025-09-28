@@ -11,7 +11,7 @@
                     <h1>Liste des Collaborateurs</h1>
                 </div>
                 <div class="col text-end">
-                    <a href="{{ url_for('add_vehicle_1') }}" class="btn btn-primary">Ajouter un collaborateur</a>
+                    <a href="{{ url_for('add_collaborateur') }}" class="btn btn-primary">Ajouter un collaborateur</a>
                 </div>
             </div>
 
@@ -23,7 +23,7 @@
                 {% endif %}
             {% endwith %}
 
-            <form method="GET" action="{{ url_for('index_1') }}" class="mb-4">
+            <form method="GET" action="{{ url_for('index_collaborateurs') }}" class="mb-4">
                 <div class="input-group">
                     <input type="text" name="search" class="form-control" 
                            placeholder="Rechercher par nom, prénom, certification..." 
@@ -50,7 +50,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for collaborateur in vehicles %}
+                        {% for collaborateur in collaborateurs %}
                         <tr>
                             <td>{{ collaborateur.nom }}</td>
                             <td>{{ collaborateur.prenom }}</td>
@@ -64,8 +64,8 @@
                             <td>{{ collaborateur.commentaire }}</td>
                             <td>
                                 <div class="btn-group">
-                                    <a href="{{ url_for('edit_vehicle_1', id=collaborateur.id) }}" class="btn btn-sm btn-warning">Modifier</a>
-                                    <a href="{{ url_for('delete_vehicle_route_1', id=collaborateur.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce collaborateur ?');">Supprimer</a>
+                                    <a href="{{ url_for('edit_collaborateur', id=collaborateur.id) }}" class="btn btn-sm btn-warning">Modifier</a>
+                                    <a href="{{ url_for('delete_collaborateur_route', id=collaborateur.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce collaborateur ?');">Supprimer</a>
                                 </div>
                             </td>
                         </tr>

@@ -6,3 +6,6 @@ google-generativeai
 openai
 fastapi
 uvicorn
+black
+flake8
+pytest
