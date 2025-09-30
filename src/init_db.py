@@ -1,5 +1,5 @@
-from src.database import engine
-from src.models import Base
+from database import engine
+from models import Base
 import logging
 
 logging.basicConfig(level=logging.INFO)

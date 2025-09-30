@@ -1,7 +1,7 @@
 # Import necessary libraries
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from src.config import Config
+from config import Config
 import logging
 
 # Set up logging
