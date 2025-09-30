@@ -3,14 +3,18 @@ from database_1 import get_db as get_db_1, init_db as init_db_1
 from database_2 import get_db as get_db_2, init_db as init_db_2
 
 from crud_1 import (
-    get_vehicles as get_vehicles_1, create_vehicle as create_vehicle_1,
-    get_vehicle as get_vehicle_1, delete_vehicle as delete_vehicle_1,
-    update_vehicle as update_vehicle_1
+    get_collaborateurs as get_collaborateurs_1,
+    create_collaborateur as create_collaborateur_1,
+    get_collaborateur as get_collaborateur_1,
+    delete_collaborateur as delete_collaborateur_1,
+    update_collaborateur as update_collaborateur_1
 )
 from crud_2 import (
-    get_vehicles_2, create_vehicle as create_vehicle_2,
-    get_vehicle as get_vehicle_2, delete_vehicle as delete_vehicle_2,
-    update_vehicle as update_vehicle_2
+    get_collaborateurs_2,
+    create_collaborateur_2,
+    get_collaborateur_2,
+    delete_collaborateur_2,
+    update_collaborateur_2
 )
 from datetime import datetime
 import logging
@@ -31,231 +35,190 @@ def index_1():
     try:
         db = next(get_db_1())
         search_term = request.args.get('search', '')
-        sort_by = request.args.get('sort_by', 'brand')
+        sort_by = request.args.get('sort_by', 'nom')
         sort_order = request.args.get('sort_order', 'asc')
-        
-        vehicles = get_vehicles_1(db, 0, 100, search_term, sort_by, sort_order)
-        return render_template('index_1.html', vehicles=vehicles, search_term=search_term,
+        collaborateurs = get_collaborateurs_1(db, 0, 100, search_term)
+        return render_template('index_1.html', collaborateurs=collaborateurs, search_term=search_term,
                              sort_by=sort_by, sort_order=sort_order)
     except Exception as e:
         logger.error(f"Error in index_1: {str(e)}")
-        flash('Une erreur est survenue lors du chargement des véhicules.', 'danger')
-        return render_template('index_1.html', vehicles=[], search_term='',
-                             sort_by='brand', sort_order='asc')
+        flash('Une erreur est survenue lors du chargement des collaborateurs.', 'danger')
+        return render_template('index_1.html', collaborateurs=[], search_term='',
+                             sort_by='nom', sort_order='asc')
 
 @app.route('/index_2')
 def index_2():
     try:
         db = next(get_db_2())
         search_term = request.args.get('search', '')
-        sort_by = request.args.get('sort_by', 'brand')
+        sort_by = request.args.get('sort_by', 'nom')
         sort_order = request.args.get('sort_order', 'asc')
         
-        vehicles = get_vehicles_2(db, 0, 100, search_term, sort_by, sort_order)
-        return render_template('index_2.html', vehicles=vehicles, search_term=search_term,
+        collaborateurs = get_collaborateurs_2(db, 0, 100, search_term, sort_by, sort_order)
+        return render_template('index_2.html', collaborateurs=collaborateurs, search_term=search_term,
                              sort_by=sort_by, sort_order=sort_order)
     except Exception as e:
         logger.error(f"Error in index_2: {str(e)}")
-        flash('Une erreur est survenue lors du chargement des véhicules.', 'danger')
-        return render_template('index_2.html', vehicles=[], search_term='',
-                             sort_by='brand', sort_order='asc')
+        flash('Une erreur est survenue lors du chargement des collaborateurs.', 'danger')
+        return render_template('index_2.html', collaborateurs=[], search_term='',
+                             sort_by='nom', sort_order='asc')
 
 
-@app.route('/add_vehicle_1', methods=['GET', 'POST'])
-def add_vehicle_1():
+@app.route('/add_collaborateur_1', methods=['GET', 'POST'])
+def add_collaborateur_1():
     if request.method == 'POST':
         try:
             db = next(get_db_1())
-            vehicle_data = {
-                'vehicle_type': request.form['vehicle_type'],
-                'brand': request.form['brand'],
-                'commercial_type': request.form['commercial_type'],
-                'group_number': request.form['group_number'] if request.form['group_number'] else None,
-                'license_plate': request.form['license_plate'],
-                'limit_periodic_inspection': datetime.strptime(request.form['limit_periodic_inspection'], '%Y-%m-%d') if request.form['limit_periodic_inspection'] else None,
-                'kilometer_periodic_inspection': int(request.form['kilometer_periodic_inspection']) if request.form['kilometer_periodic_inspection'] else None,
-                'limit_additional_inspection': datetime.strptime(request.form['limit_additional_inspection'], '%Y-%m-%d') if request.form['limit_additional_inspection'] else None,
-                'kilometer_additional_inspection': int(request.form['kilometer_additional_inspection']) if request.form['kilometer_additional_inspection'] else None,
-                'date_periodic_inspection': datetime.strptime(request.form['date_periodic_inspection'], '%Y-%m-%d') if request.form['date_periodic_inspection'] else None,
-                'date_additional_inspection': datetime.strptime(request.form['date_additional_inspection'], '%Y-%m-%d') if request.form['date_additional_inspection'] else None,
-                'comments': request.form.get('comments', '')
+            collab_data = {
+                'nom': request.form['nom'],
+                'prenom': request.form['prenom'],
+                'fimo': request.form['fimo'] if request.form['fimo'] else None,
+                'caces': request.form['caces'] if request.form['caces'] else None,
+                'aipr': request.form['aipr'] if request.form['aipr'] else None,
+                'hg0b0': request.form['hg0b0'] if request.form['hg0b0'] else None,
+                'visite_med': request.form['visite_med'] if request.form['visite_med'] else None,
+                'brevet_secour': request.form['brevet_secour'] if request.form['brevet_secour'] else None,
+                'commentaire': request.form.get('commentaire', '')
             }
-            
-            create_vehicle_1(db, **vehicle_data)
-            flash('Véhicule ajouté avec succès!', 'success')
+            create_collaborateur_1(db, **collab_data)
+            flash('Collaborateur ajouté avec succès!', 'success')
             return redirect(url_for('index_1'))
         except KeyError as e:
-            logger.error(f"Missing form field in add_vehicle_1: {str(e)}")
+            logger.error(f"Missing form field in add_collaborateur_1: {str(e)}")
             flash('Tous les champs requis doivent être remplis.', 'danger')
         except ValueError as e:
-            logger.error(f"Invalid value in add_vehicle_1: {str(e)}")
-            flash('Certaines valeurs sont invalides. Vérifiez les champs numériques et les dates.', 'danger')
+            logger.error(f"Invalid value in add_collaborateur_1: {str(e)}")
+            flash('Certaines valeurs sont invalides. Vérifiez les champs et les dates.', 'danger')
         except Exception as e:
-            logger.error(f"Error in add_vehicle_1: {str(e)}")
-            flash('Une erreur est survenue lors de l\'ajout du véhicule.', 'danger')
-    
-    return render_template('add_vehicle_1.html')
+            logger.error(f"Error in add_collaborateur_1: {str(e)}")
+            flash('Une erreur est survenue lors de l\'ajout du collaborateur.', 'danger')
+    return render_template('add_collaborateur_1.html')
 
-@app.route('/add_vehicle_2', methods=['GET', 'POST'])
-def add_vehicle_2():
+@app.route('/add_collaborateur_2', methods=['GET', 'POST'])
+def add_collaborateur_2():
     if request.method == 'POST':
         try:
             db = next(get_db_2())
-            vehicle_data = {
-                'vehicle_type': request.form['vehicle_type'],
-                'brand': request.form['brand'],
-                'commercial_type': request.form['commercial_type'],
-                'group_number': request.form['group_number'] if request.form['group_number'] else None,
-                'license_plate': request.form['license_plate'],
-                'work_with': request.form.get('work_with'),
-                'kilometer_additional_inspection': int(request.form['kilometer_additional_inspection']) if request.form['kilometer_additional_inspection'] else None,
-                'ct_soeco_date': datetime.strptime(request.form['ct_soeco_date'], '%Y-%m-%d') if request.form['ct_soeco_date'] else None,
-                'euromaster_chrono': datetime.strptime(request.form['euromaster_chrono'], '%Y-%m-%d') if request.form['euromaster_chrono'] else None,
-                'euromaster_limiteur': datetime.strptime(request.form['euromaster_limiteur'], '%Y-%m-%d') if request.form['euromaster_limiteur'] else None,
-                'ned92_chrono': datetime.strptime(request.form['ned92_chrono'], '%Y-%m-%d') if request.form['ned92_chrono'] else None,
-                'ned92_limiteur': datetime.strptime(request.form['ned92_limiteur'], '%Y-%m-%d') if request.form['ned92_limiteur'] else None,
-                'date_technical_inspection': datetime.strptime(request.form['date_technical_inspection'], '%Y-%m-%d') if request.form['date_technical_inspection'] else None,
-                'date_chrono': datetime.strptime(request.form['date_chrono'], '%Y-%m-%d') if request.form['date_chrono'] else None,
-                'date_limiteur': datetime.strptime(request.form['date_limiteur'], '%Y-%m-%d') if request.form['date_limiteur'] else None,
-                'comments': request.form.get('comments', '')
+            collab_data = {
+                'nom': request.form['nom'],
+                'prenom': request.form['prenom'],
+                'date_renouvellement': datetime.strptime(request.form['date_renouvellement'], '%Y-%m-%d').date() if request.form['date_renouvellement'] else None,
+                'date_validite': datetime.strptime(request.form['date_validite'], '%Y-%m-%d').date() if request.form['date_validite'] else None,
+                'commentaire': request.form.get('commentaire', '')
             }
-            
-            create_vehicle_2(db, **vehicle_data)
-            flash('Véhicule ajouté avec succès!', 'success')
+            create_collaborateur_2(db, **collab_data)
+            flash('Collaborateur ajouté avec succès!', 'success')
             return redirect(url_for('index_2'))
         except KeyError as e:
-            logger.error(f"Missing form field in add_vehicle_2: {str(e)}")
+            logger.error(f"Missing form field in add_collaborateur_2: {str(e)}")
             flash('Tous les champs requis doivent être remplis.', 'danger')
         except ValueError as e:
-            logger.error(f"Invalid value in add_vehicle_2: {str(e)}")
-            flash('Certaines valeurs sont invalides. Vérifiez les champs numériques et les dates.', 'danger')
+            logger.error(f"Invalid value in add_collaborateur_2: {str(e)}")
+            flash('Certaines valeurs sont invalides. Vérifiez les champs et les dates.', 'danger')
         except Exception as e:
-            logger.error(f"Error in add_vehicle_2: {str(e)}")
-            flash('Une erreur est survenue lors de l\'ajout du véhicule.', 'danger')
-    
-    return render_template('add_vehicle_2.html')
+            logger.error(f"Error in add_collaborateur_2: {str(e)}")
+            flash('Une erreur est survenue lors de l\'ajout du collaborateur.', 'danger')
+    return render_template('add_collaborateur_2.html')
 
-@app.route('/edit_vehicle_1/<int:id>', methods=['GET', 'POST'])
-def edit_vehicle_1(id):
+@app.route('/edit_collaborateur_1/<int:id>', methods=['GET', 'POST'])
+def edit_collaborateur_1(id):
     try:
         db = next(get_db_1())
-        vehicle = get_vehicle_1(db, id)
-        
-        if not vehicle:
-            flash('Véhicule non trouvé.', 'danger')
+        collaborateur = get_collaborateur_1(db, id)
+        if not collaborateur:
+            flash('Collaborateur non trouvé.', 'danger')
             return redirect(url_for('index_1'))
-        
         if request.method == 'POST':
             try:
-                vehicle_data = {
-                    'vehicle_type': request.form['vehicle_type'],
-                    'brand': request.form['brand'],
-                    'commercial_type': request.form['commercial_type'],
-                    'group_number': request.form['group_number'] if request.form['group_number'] else None,
-                    'license_plate': request.form['license_plate'],
-                    'limit_periodic_inspection': datetime.strptime(request.form['limit_periodic_inspection'], '%Y-%m-%d') if request.form['limit_periodic_inspection'] else None,
-                    'kilometer_periodic_inspection': int(request.form['kilometer_periodic_inspection']) if request.form['kilometer_periodic_inspection'] else None,
-                    'limit_additional_inspection': datetime.strptime(request.form['limit_additional_inspection'], '%Y-%m-%d') if request.form['limit_additional_inspection'] else None,
-                    'kilometer_additional_inspection': int(request.form['kilometer_additional_inspection']) if request.form['kilometer_additional_inspection'] else None,
-                    'date_periodic_inspection': datetime.strptime(request.form['date_periodic_inspection'], '%Y-%m-%d') if request.form['date_periodic_inspection'] else None,
-                    'date_additional_inspection': datetime.strptime(request.form['date_additional_inspection'], '%Y-%m-%d') if request.form['date_additional_inspection'] else None,
-                    'comments': request.form.get('comments', '')
+                collab_data = {
+                    'nom': request.form['nom'],
+                    'prenom': request.form['prenom'],
+                    'fimo': request.form['fimo'] if request.form['fimo'] else None,
+                    'caces': request.form['caces'] if request.form['caces'] else None,
+                    'aipr': request.form['aipr'] if request.form['aipr'] else None,
+                    'hg0b0': request.form['hg0b0'] if request.form['hg0b0'] else None,
+                    'visite_med': request.form['visite_med'] if request.form['visite_med'] else None,
+                    'brevet_secour': request.form['brevet_secour'] if request.form['brevet_secour'] else None,
+                    'commentaire': request.form.get('commentaire', '')
                 }
-                
-                update_vehicle_1(db, id, **vehicle_data)
-                flash('Véhicule mis à jour avec succès!', 'success')
+                update_collaborateur_1(db, id, **collab_data)
+                flash('Collaborateur mis à jour avec succès!', 'success')
                 return redirect(url_for('index_1'))
             except KeyError as e:
-                logger.error(f"Missing form field in edit_vehicle_1: {str(e)}")
+                logger.error(f"Missing form field in edit_collaborateur_1: {str(e)}")
                 flash('Tous les champs requis doivent être remplis.', 'danger')
             except ValueError as e:
-                logger.error(f"Invalid value in edit_vehicle_1: {str(e)}")
-                flash('Certaines valeurs sont invalides. Vérifiez les champs numériques et les dates.', 'danger')
+                logger.error(f"Invalid value in edit_collaborateur_1: {str(e)}")
+                flash('Certaines valeurs sont invalides. Vérifiez les champs et les dates.', 'danger')
             except Exception as e:
-                logger.error(f"Error in edit_vehicle_1: {str(e)}")
-                flash('Une erreur est survenue lors de la mise à jour du véhicule.', 'danger')
-        
-        return render_template('edit_vehicle_1.html', vehicle=vehicle)
+                logger.error(f"Error in edit_collaborateur_1: {str(e)}")
+                flash('Une erreur est survenue lors de la mise à jour du collaborateur.', 'danger')
+        return render_template('edit_collaborateur_1.html', collaborateur=collaborateur)
     except Exception as e:
-        logger.error(f"Error loading vehicle in edit_vehicle_1: {str(e)}")
-        flash('Une erreur est survenue lors du chargement du véhicule.', 'danger')
+        logger.error(f"Error loading collaborateur in edit_collaborateur_1: {str(e)}")
+        flash('Une erreur est survenue lors du chargement du collaborateur.', 'danger')
         return redirect(url_for('index_1'))
 
-@app.route('/edit_vehicle_2/<int:id>', methods=['GET', 'POST'])
-def edit_vehicle_2(id):
+@app.route('/edit_collaborateur_2/<int:id>', methods=['GET', 'POST'])
+def edit_collaborateur_2(id):
     try:
         db = next(get_db_2())
-        vehicle = get_vehicle_2(db, id)
-        
-        if not vehicle:
-            flash('Véhicule non trouvé.', 'danger')
+        collaborateur = get_collaborateur_2(db, id)
+        if not collaborateur:
+            flash('Collaborateur non trouvé.', 'danger')
             return redirect(url_for('index_2'))
-        
         if request.method == 'POST':
             try:
-                vehicle_data = {
-                    'vehicle_type': request.form['vehicle_type'],
-                    'brand': request.form['brand'],
-                    'commercial_type': request.form['commercial_type'],
-                    'group_number': request.form['group_number'] if request.form['group_number'] else None,
-                    'license_plate': request.form['license_plate'],
-                    'work_with': request.form.get('work_with'),
-                    'kilometer_additional_inspection': int(request.form['kilometer_additional_inspection']) if request.form['kilometer_additional_inspection'] else None,
-                    'ct_soeco_date': datetime.strptime(request.form['ct_soeco_date'], '%Y-%m-%d') if request.form['ct_soeco_date'] else None,
-                    'euromaster_chrono': datetime.strptime(request.form['euromaster_chrono'], '%Y-%m-%d') if request.form['euromaster_chrono'] else None,
-                    'euromaster_limiteur': datetime.strptime(request.form['euromaster_limiteur'], '%Y-%m-%d') if request.form['euromaster_limiteur'] else None,
-                    'ned92_chrono': datetime.strptime(request.form['ned92_chrono'], '%Y-%m-%d') if request.form['ned92_chrono'] else None,
-                    'ned92_limiteur': datetime.strptime(request.form['ned92_limiteur'], '%Y-%m-%d') if request.form['ned92_limiteur'] else None,
-                    'date_technical_inspection': datetime.strptime(request.form['date_technical_inspection'], '%Y-%m-%d') if request.form['date_technical_inspection'] else None,
-                    'date_chrono': datetime.strptime(request.form['date_chrono'], '%Y-%m-%d') if request.form['date_chrono'] else None,
-                    'date_limiteur': datetime.strptime(request.form['date_limiteur'], '%Y-%m-%d') if request.form['date_limiteur'] else None,
-                    'comments': request.form.get('comments', '')
+                collab_data = {
+                    'nom': request.form['nom'],
+                    'prenom': request.form['prenom'],
+                    'date_renouvellement': datetime.strptime(request.form['date_renouvellement'], '%Y-%m-%d').date() if request.form['date_renouvellement'] else None,
+                    'date_validite': datetime.strptime(request.form['date_validite'], '%Y-%m-%d').date() if request.form['date_validite'] else None,
+                    'commentaire': request.form.get('commentaire', '')
                 }
-                
-                update_vehicle_2(db, id, **vehicle_data)
-                flash('Véhicule mis à jour avec succès!', 'success')
+                update_collaborateur_2(db, id, **collab_data)
+                flash('Collaborateur mis à jour avec succès!', 'success')
                 return redirect(url_for('index_2'))
             except KeyError as e:
-                logger.error(f"Missing form field in edit_vehicle_2: {str(e)}")
+                logger.error(f"Missing form field in edit_collaborateur_2: {str(e)}")
                 flash('Tous les champs requis doivent être remplis.', 'danger')
             except ValueError as e:
-                logger.error(f"Invalid value in edit_vehicle_2: {str(e)}")
-                flash('Certaines valeurs sont invalides. Vérifiez les champs numériques et les dates.', 'danger')
+                logger.error(f"Invalid value in edit_collaborateur_2: {str(e)}")
+                flash('Certaines valeurs sont invalides. Vérifiez les champs et les dates.', 'danger')
             except Exception as e:
-                logger.error(f"Error in edit_vehicle_2: {str(e)}")
-                flash('Une erreur est survenue lors de la mise à jour du véhicule.', 'danger')
-        
-        return render_template('edit_vehicle_2.html', vehicle=vehicle)
+                logger.error(f"Error in edit_collaborateur_2: {str(e)}")
+                flash('Une erreur est survenue lors de la mise à jour du collaborateur.', 'danger')
+        return render_template('edit_collaborateur_2.html', collaborateur=collaborateur)
     except Exception as e:
-        logger.error(f"Error loading vehicle in edit_vehicle_2: {str(e)}")
-        flash('Une erreur est survenue lors du chargement du véhicule.', 'danger')
+        logger.error(f"Error loading collaborateur in edit_collaborateur_2: {str(e)}")
+        flash('Une erreur est survenue lors du chargement du collaborateur.', 'danger')
         return redirect(url_for('index_2'))
 
 
-@app.route('/delete_vehicle_1/<int:id>', methods=['POST'])
-def delete_vehicle_1(id):
+@app.route('/delete_collaborateur_1/<int:id>', methods=['POST'])
+def delete_collaborateur_1_route(id):
     try:
         db = next(get_db_1())
-        if delete_vehicle_1(db, id):
-            flash('Véhicule supprimé avec succès!', 'success')
+        if delete_collaborateur_1(db, id):
+            flash('Collaborateur supprimé avec succès!', 'success')
         else:
-            flash('Véhicule non trouvé.', 'danger')
+            flash('Collaborateur non trouvé.', 'danger')
     except Exception as e:
-        logger.error(f"Error in delete_vehicle_1: {str(e)}")
-        flash('Une erreur est survenue lors de la suppression du véhicule.', 'danger')
+        logger.error(f"Error in delete_collaborateur_1: {str(e)}")
+        flash('Une erreur est survenue lors de la suppression du collaborateur.', 'danger')
     return redirect(url_for('index_1'))
 
-@app.route('/delete_vehicle_2/<int:id>', methods=['POST'])
-def delete_vehicle_2(id):
+@app.route('/delete_collaborateur_2/<int:id>', methods=['POST'])
+def delete_collaborateur_2_route(id):
     try:
         db = next(get_db_2())
-        if delete_vehicle_2(db, id):
-            flash('Véhicule supprimé avec succès!', 'success')
+        if delete_collaborateur_2(db, id):
+            flash('Collaborateur supprimé avec succès!', 'success')
         else:
-            flash('Véhicule non trouvé.', 'danger')
+            flash('Collaborateur non trouvé.', 'danger')
     except Exception as e:
-        logger.error(f"Error in delete_vehicle_2: {str(e)}")
-        flash('Une erreur est survenue lors de la suppression du véhicule.', 'danger')
+        logger.error(f"Error in delete_collaborateur_2: {str(e)}")
+        flash('Une erreur est survenue lors de la suppression du collaborateur.', 'danger')
     return redirect(url_for('index_2'))
 
 

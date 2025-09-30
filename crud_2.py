@@ -1,169 +1,121 @@
 from sqlalchemy.orm import Session
-from models_2 import Vehicle2 as Vehicle
-from datetime import datetime
+from models_2 import CollaborateurPoidsLouud
+from datetime import date
 from typing import Optional, List
 import logging
-from sqlalchemy import String
 
-# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def create_vehicle_2(db: Session, 
-                    vehicle_type: str,
-                    brand: str,
-                    commercial_type: str,
-                    group_number: Optional[int],
-                    license_plate: str,
-                    work_with: Optional[str],
-                    kilometer_additional_inspection: Optional[int],
-                    ct_soeco_date: Optional[datetime],
-                    euromaster_chrono: Optional[datetime],
-                    euromaster_limiteur: Optional[datetime],
-                    ned92_chrono: Optional[datetime],
-                    ned92_limiteur: Optional[datetime],
-                    date_technical_inspection: Optional[datetime],
-                    date_chrono: Optional[datetime],
-                    date_limiteur: Optional[datetime],
-                    comments: Optional[str] = None) -> Vehicle:
-    """Create a new vehicle entry"""
-    db_vehicle = Vehicle(
-        vehicle_type=vehicle_type,
-        brand=brand,
-        commercial_type=commercial_type,
-        group_number=group_number,
-        license_plate=license_plate,
-        work_with=work_with,
-        kilometer_additional_inspection=kilometer_additional_inspection,
-        ct_soeco_date=ct_soeco_date,
-        euromaster_chrono=euromaster_chrono,
-        euromaster_limiteur=euromaster_limiteur,
-        ned92_chrono=ned92_chrono,
-        ned92_limiteur=ned92_limiteur,
-        date_technical_inspection=date_technical_inspection,
-        date_chrono=date_chrono,
-        date_limiteur=date_limiteur,
-        comments=comments
+def create_collaborateur_2(
+    db: Session,
+    nom: str,
+    prenom: str,
+    date_renouvellement: Optional[date] = None,
+    date_validite: Optional[date] = None,
+    commentaire: Optional[str] = None
+) -> CollaborateurPoidsLouud:
+    """Create a new collaborateur entry"""
+    db_collaborateur = CollaborateurPoidsLouud(
+        nom=nom,
+        prenom=prenom,
+        date_renouvellement=date_renouvellement,
+        date_validite=date_validite,
+        commentaire=commentaire
     )
     try:
-        db.add(db_vehicle)
+        db.add(db_collaborateur)
         db.commit()
-        db.refresh(db_vehicle)
-        logger.info(f"Created vehicle with license plate {license_plate}")
-        return db_vehicle
+        db.refresh(db_collaborateur)
+        logger.info(f"Created collaborateur {nom} {prenom}")
+        return db_collaborateur
     except Exception as e:
-        logger.error(f"Error creating vehicle: {str(e)}")
+        logger.error(f"Error creating collaborateur: {str(e)}")
         db.rollback()
         raise
 
-def get_vehicle_2(db: Session, vehicle_id: int) -> Optional[Vehicle]:
-    """Get a vehicle by ID"""
-    return db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
+def get_collaborateur_2(db: Session, collaborateur_id: int) -> Optional[CollaborateurPoidsLouud]:
+    """Get a collaborateur by ID"""
+    return db.query(CollaborateurPoidsLouud).filter(CollaborateurPoidsLouud.id == collaborateur_id).first()
 
-def get_vehicle_by_license_plate_2(db: Session, license_plate: str) -> Optional[Vehicle]:
-    """Get a vehicle by license plate"""
-    return db.query(Vehicle).filter(Vehicle.license_plate == license_plate).first()
-
-def get_vehicles_2(db: Session, skip: int = 0, limit: int = 100, search: str = None, sort_by: str = None, direction: str = 'asc') -> List[Vehicle]:
-    """Get all vehicles with pagination, search, and sorting functionality"""
-    query = db.query(Vehicle)
-    
+def get_collaborateurs_2(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    direction: str = 'asc'
+) -> List[CollaborateurPoidsLouud]:
+    """Get all collaborateurs with pagination, search, and sorting functionality"""
+    query = db.query(CollaborateurPoidsLouud)
     if search:
         search_term = f"%{search}%"
         query = query.filter(
-            (Vehicle.vehicle_type.ilike(search_term)) |
-            (Vehicle.brand.ilike(search_term)) |
-            (Vehicle.commercial_type.ilike(search_term)) |
-            (Vehicle.group_number.cast(String).ilike(search_term)) |
-            (Vehicle.license_plate.ilike(search_term)) |
-            (Vehicle.work_with.ilike(search_term)) |
-            (Vehicle.kilometer_additional_inspection.cast(String).ilike(search_term)) |
-            (Vehicle.comments.ilike(search_term))
+            (CollaborateurPoidsLouud.nom.ilike(search_term)) |
+            (CollaborateurPoidsLouud.prenom.ilike(search_term)) |
+            (CollaborateurPoidsLouud.commentaire.ilike(search_term))
         )
-    
-    # Apply sorting if column exists
-    if sort_by and hasattr(Vehicle, sort_by):
-        column = getattr(Vehicle, sort_by)
+    if sort_by and hasattr(CollaborateurPoidsLouud, sort_by):
+        column = getattr(CollaborateurPoidsLouud, sort_by)
         if direction == 'desc':
             column = column.desc()
         query = query.order_by(column)
-    
     return query.offset(skip).limit(limit).all()
 
-def update_vehicle_2(db: Session, 
-                    vehicle_id: int,
-                    vehicle_type: Optional[str] = None,
-                    brand: Optional[str] = None,
-                    commercial_type: Optional[str] = None,
-                    group_number: Optional[int] = None,
-                    license_plate: Optional[str] = None,
-                    work_with: Optional[str] = None,
-                    kilometer_additional_inspection: Optional[int] = None,
-                    ct_soeco_date: Optional[datetime] = None,
-                    euromaster_chrono: Optional[datetime] = None,
-                    euromaster_limiteur: Optional[datetime] = None,
-                    ned92_chrono: Optional[datetime] = None,
-                    ned92_limiteur: Optional[datetime] = None,
-                    date_technical_inspection: Optional[datetime] = None,
-                    date_chrono: Optional[datetime] = None,
-                    date_limiteur: Optional[datetime] = None,
-                    comments: Optional[str] = None) -> Optional[Vehicle]:
-    """Update a vehicle's information"""
-    vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
-    if vehicle:
-        # Update required fields only if they are not None
-        if vehicle_type is not None:
-            vehicle.vehicle_type = vehicle_type
-        if brand is not None:
-            vehicle.brand = brand
-        if commercial_type is not None:
-            vehicle.commercial_type = commercial_type
-        if license_plate is not None:
-            vehicle.license_plate = license_plate
-            
-        # Update optional fields, allowing them to be set to None
-        vehicle.group_number = group_number
-        vehicle.work_with = work_with
-        vehicle.kilometer_additional_inspection = kilometer_additional_inspection
-        vehicle.ct_soeco_date = ct_soeco_date
-        vehicle.euromaster_chrono = euromaster_chrono
-        vehicle.euromaster_limiteur = euromaster_limiteur
-        vehicle.ned92_chrono = ned92_chrono
-        vehicle.ned92_limiteur = ned92_limiteur
-        vehicle.date_technical_inspection = date_technical_inspection
-        vehicle.date_chrono = date_chrono
-        vehicle.date_limiteur = date_limiteur
-        vehicle.comments = comments
-        
+def update_collaborateur_2(
+    db: Session,
+    collaborateur_id: int,
+    nom: Optional[str] = None,
+    prenom: Optional[str] = None,
+    date_renouvellement: Optional[date] = None,
+    date_validite: Optional[date] = None,
+    commentaire: Optional[str] = None
+) -> Optional[CollaborateurPoidsLouud]:
+    """Update a collaborateur's information"""
+    collaborateur = db.query(CollaborateurPoidsLouud).filter(CollaborateurPoidsLouud.id == collaborateur_id).first()
+    if collaborateur:
+        if nom is not None:
+            setattr(collaborateur, "nom", nom)
+        if prenom is not None:
+            setattr(collaborateur, "prenom", prenom)
+        if date_renouvellement is not None:
+            setattr(collaborateur, "date_renouvellement", date_renouvellement)
+        if date_validite is not None:
+            setattr(collaborateur, "date_validite", date_validite)
+        if commentaire is not None:
+            setattr(collaborateur, "commentaire", commentaire)
         try:
             db.commit()
-            db.refresh(vehicle)
-            logger.info(f"Updated vehicle with ID {vehicle_id}")
-            return vehicle
+            db.refresh(collaborateur)
+            logger.info(f"Updated collaborateur with ID {collaborateur_id}")
+            return collaborateur
         except Exception as e:
-            logger.error(f"Error updating vehicle: {str(e)}")
+            logger.error(f"Error updating collaborateur: {str(e)}")
             db.rollback()
             raise
     return None
 
-def delete_vehicle_2(db: Session, vehicle_id: int) -> bool:
-    """Delete a vehicle"""
-    vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
-    if vehicle:
+def delete_collaborateur_2(db: Session, collaborateur_id: int) -> bool:
+    """Delete a collaborateur"""
+    collaborateur = db.query(CollaborateurPoidsLouud).filter(CollaborateurPoidsLouud.id == collaborateur_id).first()
+    if collaborateur:
         try:
-            db.delete(vehicle)
+            db.delete(collaborateur)
             db.commit()
-            logger.info(f"Deleted vehicle with ID {vehicle_id}")
+            logger.info(f"Deleted collaborateur with ID {collaborateur_id}")
             return True
         except Exception as e:
-            logger.error(f"Error deleting vehicle: {str(e)}")
+            logger.error(f"Error deleting collaborateur: {str(e)}")
             db.rollback()
             raise
     return False
 
-def get_vehicles_needing_inspection_2(db: Session) -> List[Vehicle]:
-    """Get vehicles that need inspection soon"""
+def get_collaborateurs_expiring_soon_2(db: Session, days: int = 30) -> List[CollaborateurPoidsLouud]:
+    """Get collaborateurs whose date_validite expires within the next 'days' days"""
+    from datetime import datetime, timedelta
     today = datetime.now().date()
-    return db.query(Vehicle).filter(
-        Vehicle.date_technical_inspection <= today
-    ).order_by(Vehicle.date_technical_inspection).all()
+    soon = today + timedelta(days=days)
+    return db.query(CollaborateurPoidsLouud).filter(
+        CollaborateurPoidsLouud.date_validite <= soon,
+        CollaborateurPoidsLouud.date_validite >= today
+    ).order_by(CollaborateurPoidsLouud.date_validite).all()

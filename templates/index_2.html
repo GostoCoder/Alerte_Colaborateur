@@ -11,7 +11,7 @@
                     <h1>Liste des Véhicules</h1>
                 </div>
                 <div class="col text-end">
-                    <a href="{{ url_for('add_vehicle_2') }}" class="btn btn-primary">Ajouter un véhicule</a>
+                    <a href="{{ url_for('add_collaborateur_2') }}" class="btn btn-primary">Ajouter un collaborateur</a>
                 </div>
             </div>
 
@@ -93,35 +93,35 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for vehicle in vehicles %}
+                        {% for collaborateur in collaborateurs %}
                         <tr>
                             <td>
                                 <div class="btn-group">
-                                    <a href="{{ url_for('edit_vehicle_2', id=vehicle.id) }}" class="btn btn-sm btn-warning rounded-circle d-flex align-items-center justify-content-center" style="width:28px;height:28px;padding:0;" title="Modifier">
+                                    <a href="{{ url_for('edit_collaborateur_2', id=collaborateur.id) }}" class="btn btn-sm btn-warning rounded-circle d-flex align-items-center justify-content-center" style="width:28px;height:28px;padding:0;" title="Modifier">
     <i class="fas fa-pen"></i>
 </a>
-<button onclick="confirmDelete({{ vehicle.id }}, '{{ vehicle.license_plate }}')" 
+<button onclick="confirmDelete({{ collaborateur.id }}, '{{ collaborateur.license_plate }}')" 
         class="btn btn-sm btn-danger rounded-circle d-flex align-items-center justify-content-center" style="width:28px;height:28px;padding:0;" title="Supprimer">
     <i class="fas fa-trash"></i>
 </button>
                                 </div>
                             </td>
-                            <td>{{ vehicle.vehicle_type }}</td>
-                            <td>{{ vehicle.brand }}</td>
-                            <td>{{ vehicle.commercial_type }}</td>
-                            <td>{{ vehicle.group_number }}</td>
-                            <td>{{ vehicle.license_plate }}</td>
-                            <td>{{ vehicle.work_with }}</td>
-                            <td>{{ vehicle.kilometer_additional_inspection }}</td>
-                            <td>{{ vehicle.ct_soeco_date.strftime('%d/%m/%Y') if vehicle.ct_soeco_date }}</td>
-                            <td>{{ vehicle.euromaster_chrono.strftime('%d/%m/%Y') if vehicle.euromaster_chrono }}</td>
-                            <td>{{ vehicle.euromaster_limiteur.strftime('%d/%m/%Y') if vehicle.euromaster_limiteur }}</td>
-                            <td>{{ vehicle.ned92_chrono.strftime('%d/%m/%Y') if vehicle.ned92_chrono }}</td>
-                            <td>{{ vehicle.ned92_limiteur.strftime('%d/%m/%Y') if vehicle.ned92_limiteur }}</td>
-                            <td>{{ vehicle.date_technical_inspection.strftime('%d/%m/%Y') if vehicle.date_technical_inspection }}</td>
-                            <td>{{ vehicle.date_chrono.strftime('%d/%m/%Y') if vehicle.date_chrono }}</td>
-                            <td>{{ vehicle.date_limiteur.strftime('%d/%m/%Y') if vehicle.date_limiteur }}</td>
-                            <td>{{ vehicle.comments }}</td>
+                            <td>{{ collaborateur.vehicle_type }}</td>
+                            <td>{{ collaborateur.brand }}</td>
+                            <td>{{ collaborateur.commercial_type }}</td>
+                            <td>{{ collaborateur.group_number }}</td>
+                            <td>{{ collaborateur.license_plate }}</td>
+                            <td>{{ collaborateur.work_with }}</td>
+                            <td>{{ collaborateur.kilometer_additional_inspection }}</td>
+                            <td>{{ collaborateur.ct_soeco_date.strftime('%d/%m/%Y') if collaborateur.ct_soeco_date }}</td>
+                            <td>{{ collaborateur.euromaster_chrono.strftime('%d/%m/%Y') if collaborateur.euromaster_chrono }}</td>
+                            <td>{{ collaborateur.euromaster_limiteur.strftime('%d/%m/%Y') if collaborateur.euromaster_limiteur }}</td>
+                            <td>{{ collaborateur.ned92_chrono.strftime('%d/%m/%Y') if collaborateur.ned92_chrono }}</td>
+                            <td>{{ collaborateur.ned92_limiteur.strftime('%d/%m/%Y') if collaborateur.ned92_limiteur }}</td>
+                            <td>{{ collaborateur.date_technical_inspection.strftime('%d/%m/%Y') if collaborateur.date_technical_inspection }}</td>
+                            <td>{{ collaborateur.date_chrono.strftime('%d/%m/%Y') if collaborateur.date_chrono }}</td>
+                            <td>{{ collaborateur.date_limiteur.strftime('%d/%m/%Y') if collaborateur.date_limiteur }}</td>
+                            <td>{{ collaborateur.comments }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -133,8 +133,8 @@
 
 <script>
 function confirmDelete(id, licensePlate) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer le véhicule avec la plaque ' + licensePlate + ' ?')) {
-        window.location.href = "{{ url_for('delete_vehicle_route_2', id=0) }}".replace('0', id);
+    if (confirm('Êtes-vous sûr de vouloir supprimer le collaborateur avec la plaque ' + licensePlate + ' ?')) {
+        window.location.href = "/delete_collaborateur_route_2/" + id;
     }
 }
 

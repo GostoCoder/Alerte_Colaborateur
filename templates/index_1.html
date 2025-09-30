@@ -11,7 +11,7 @@
                     <h1>Liste des Collaborateurs</h1>
                 </div>
                 <div class="col text-end">
-                    <a href="{{ url_for('add_vehicle_1') }}" class="btn btn-primary">Ajouter un collaborateur</a>
+                    <a href="{{ url_for('add_collaborateur_1') }}" class="btn btn-primary">Ajouter un collaborateur</a>
                 </div>
             </div>
 
@@ -53,7 +53,7 @@
                         <tr>
                             <td>
                                 <div class="btn-group">
-                                    <a href="{{ url_for('edit_vehicle_1', id=collaborateur.id) }}" class="btn btn-sm btn-warning rounded-circle d-flex align-items-center justify-content-center" style="width:28px;height:28px;padding:0;" title="Modifier">
+                                    <a href="{{ url_for('edit_collaborateur_1', id=collaborateur.id) }}" class="btn btn-sm btn-warning rounded-circle d-flex align-items-center justify-content-center" style="width:28px;height:28px;padding:0;" title="Modifier">
                                         <i class="fas fa-pen"></i>
                                     </a>
                                     <button onclick="confirmDelete({{ collaborateur.id }}, '{{ collaborateur.nom }} {{ collaborateur.prenom }}')" 
@@ -83,7 +83,7 @@
 <script>
 function confirmDelete(id, name) {
     if (confirm('Êtes-vous sûr de vouloir supprimer le collaborateur ' + name + ' ?')) {
-        window.location.href = "{{ url_for('delete_vehicle_route_1', id=0) }}".replace('0', id);
+        window.location.href = "/delete_collaborateur_route_1/" + id;
     }
 }
 </script>
