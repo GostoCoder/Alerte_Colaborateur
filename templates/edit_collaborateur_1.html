@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: none !important;
+        background-color: white !important;
+        background-image: none !important;
+    }
+
+    .container {
+        background-color: white !important;
+    }
+
+    .card {
+        background-color: white !important;
+    }
+
+    #limit_periodic_inspection, #date_periodic_inspection {
+        border-color: #ffa500;
+        background-color: #fff3e0 !important;
+    }
+
+    #limit_additional_inspection, #date_additional_inspection {
+        border-color: #9c27b0;
+        background-color: #f3e5f5 !important;
+    }
+
+</style>
+{% endblock %}
+
+{% block title %}Modifier un Collaborateur - Base de données 1{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-body">
+            <h1>Modifier un Collaborateur</h1>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category }}">{{ message }}</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+<form method="POST" action="{{ url_for('edit_vehicle_1', id=collaborateur.id) }}">
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <label for="nom" class="form-label">Nom *</label>
+            <input type="text" class="form-control" id="nom" name="nom" value="{{ collaborateur.nom }}" required>
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="prenom" class="form-label">Prénom *</label>
+            <input type="text" class="form-control" id="prenom" name="prenom" value="{{ collaborateur.prenom }}" required>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <label for="fimo" class="form-label">FIMO</label>
+            <input type="text" class="form-control" id="fimo" name="fimo" value="{{ collaborateur.fimo }}">
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="caces" class="form-label">CACES</label>
+            <input type="text" class="form-control" id="caces" name="caces" value="{{ collaborateur.caces }}">
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="aipr" class="form-label">AIPR</label>
+            <input type="text" class="form-control" id="aipr" name="aipr" value="{{ collaborateur.aipr }}">
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <label for="hg0b0" class="form-label">H0B0</label>
+            <input type="text" class="form-control" id="hg0b0" name="hg0b0" value="{{ collaborateur.hg0b0 }}">
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="visite_med" class="form-label">Visite Médicale</label>
+            <input type="text" class="form-control" id="visite_med" name="visite_med" value="{{ collaborateur.visite_med }}">
+        </div>
+        <div class="col-md-4 mb-3">
+            <label for="brevet_secour" class="form-label">Brevet Secouriste</label>
+            <input type="text" class="form-control" id="brevet_secour" name="brevet_secour" value="{{ collaborateur.brevet_secour }}">
+        </div>
+    </div>
+    <div class="mb-3">
+        <label for="commentaire" class="form-label">Commentaire</label>
+        <textarea class="form-control" id="commentaire" name="commentaire" rows="3">{{ collaborateur.commentaire }}</textarea>
+    </div>
+    <div class="mb-3">
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+        <a href="{{ url_for('index_1') }}" class="btn btn-secondary">Annuler</a>
+    </div>
+</form>
+        </div>
+    </div>
+</div>
+
+<script>
+
+    // Form validation
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms).forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+    })()
+
+    const limitPeriodicInspectionInput = document.getElementById('limit_periodic_inspection');
+    const datePeriodicInspectionInput = document.getElementById('date_periodic_inspection');
+    let previousDate_perio = limitPeriodicInspectionInput.value;
+
+    limitPeriodicInspectionInput.addEventListener('change', () => {
+        const newDate = limitPeriodicInspectionInput.value;
+        if (newDate > previousDate_perio) {
+            datePeriodicInspectionInput.value = '';
+        }
+        previousDate_perio = newDate;
+    });
+
+    const limitAdditionalInspectionInput = document.getElementById('limit_additional_inspection');
+    const dateAdditionalInspectionInput = document.getElementById('date_additional_inspection');
+    let previousDate_add = limitAdditionalInspectionInput.value;
+
+    limitAdditionalInspectionInput.addEventListener('change', () => {
+        const newDate = limitAdditionalInspectionInput.value;
+        if (newDate > previousDate_add) {
+            dateAdditionalInspectionInput.value = '';
+        }
+        previousDate_add = newDate;
+    });
+</script>
+
+{% endblock %}
