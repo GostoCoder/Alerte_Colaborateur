@@ -164,14 +164,22 @@ def check_inspection_dates():
             if SMTP_SERVER is None or SMTP_PORT is None:
                 raise ValueError("SMTP_SERVER and SMTP_PORT must be configured")
             
-            logger.info(f"Connecting to Gmail SMTP server {SMTP_SERVER}:{SMTP_PORT} using STARTTLS...")
-            with smtplib.SMTP(SMTP_SERVER, int(SMTP_PORT), timeout=30) as server:
+            port = int(SMTP_PORT) if SMTP_PORT is not None else 587
+            if port == 465:
+                logger.info(f"Connecting to SMTP server {SMTP_SERVER}:{port} using SSL...")
+                server = smtplib.SMTP_SSL(SMTP_SERVER, port, timeout=30)
+            else:
+                logger.info(f"Connecting to SMTP server {SMTP_SERVER}:{port} using STARTTLS...")
+                server = smtplib.SMTP(SMTP_SERVER, port, timeout=30)
+                server.ehlo()
                 server.starttls()
-                logger.info("STARTTLS enabled, attempting login...")
+                server.ehlo()
+            with server:
                 try:
                     if SENDER_EMAIL is None or SENDER_PASSWORD is None:
                         raise ValueError("SENDER_EMAIL and SENDER_PASSWORD must be configured")
-                    server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                    sender_password = SENDER_PASSWORD.strip()
+                    server.login(SENDER_EMAIL, sender_password)
                     logger.info("SMTP login successful")
                 except smtplib.SMTPAuthenticationError as e:
                     logger.error(f"Gmail authentication failed: {e}")
@@ -199,7 +207,7 @@ def check_inspection_dates():
                         for notif in notifications:
                             enhanced_notifications.append({
                                 'type': notif['type'],
-                                'collaborateur_data': {
+                                'vehicle_data': {
                                     'id': collaborateur.id,
                                     'nom': collaborateur.nom,
                                     'prenom': collaborateur.prenom,
