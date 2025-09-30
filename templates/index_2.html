@@ -59,14 +59,18 @@
                     <thead>
                         <tr>
                             <th>Actions</th>
-                            <th class="sortable {{ 'asc' if sort_by == 'nom' and sort_order == 'asc' else 'desc' if sort_by == 'nom' else '' }}"
-                                onclick="sortTable('nom')">Nom</th>
-                            <th class="sortable {{ 'asc' if sort_by == 'prenom' and sort_order == 'asc' else 'desc' if sort_by == 'prenom' else '' }}"
-                                onclick="sortTable('prenom')">Prénom</th>
-                            <th class="sortable {{ 'asc' if sort_by == 'date_renouvellement' and sort_order == 'asc' else 'desc' if sort_by == 'date_renouvellement' else '' }}"
-                                onclick="sortTable('date_renouvellement')">Date de Renouvellement</th>
-                            <th class="sortable {{ 'asc' if sort_by == 'date_validite' and sort_order == 'asc' else 'desc' if sort_by == 'date_validite' else '' }}"
-                                onclick="sortTable('date_validite')">Date de Validité</th>
+<th class="sortable {{ 'asc' if sort_by == 'nom' and sort_order == 'asc' else 'desc' if sort_by == 'nom' else '' }}" data-col-index="1" data-type="text">
+    <a href="{{ url_for('index_2', sort_by='nom', sort_order='desc' if sort_by=='nom' and sort_order=='asc' else 'asc', search=search_term) }}" style="text-decoration:none;color:inherit;">Nom</a>
+</th>
+<th class="sortable {{ 'asc' if sort_by == 'prenom' and sort_order == 'asc' else 'desc' if sort_by == 'prenom' else '' }}" data-col-index="2" data-type="text">
+    <a href="{{ url_for('index_2', sort_by='prenom', sort_order='desc' if sort_by=='prenom' and sort_order=='asc' else 'asc', search=search_term) }}" style="text-decoration:none;color:inherit;">Prénom</a>
+</th>
+<th class="sortable {{ 'asc' if sort_by == 'date_renouvellement' and sort_order == 'asc' else 'desc' if sort_by == 'date_renouvellement' else '' }}" data-col-index="3" data-type="date">
+    <a href="{{ url_for('index_2', sort_by='date_renouvellement', sort_order='desc' if sort_by=='date_renouvellement' and sort_order=='asc' else 'asc', search=search_term) }}" style="text-decoration:none;color:inherit;">Date de Renouvellement</a>
+</th>
+<th class="sortable {{ 'asc' if sort_by == 'date_validite' and sort_order == 'asc' else 'desc' if sort_by == 'date_validite' else '' }}" data-col-index="4" data-type="date">
+    <a href="{{ url_for('index_2', sort_by='date_validite', sort_order='desc' if sort_by=='date_validite' and sort_order=='asc' else 'asc', search=search_term) }}" style="text-decoration:none;color:inherit;">Date de Validité</a>
+</th>
                             <th>Commentaire</th>
                         </tr>
                     </thead>
@@ -78,11 +82,11 @@
                                     <a href="{{ url_for('edit_collaborateur_2', id=collaborateur.id) }}" class="btn btn-sm btn-warning rounded-circle d-flex align-items-center justify-content-center" style="width:28px;height:28px;padding:0;" title="Modifier">
                                         <i class="fas fa-pen"></i>
                                     </a>
-                                    <button onclick="confirmDelete({{ collaborateur.id }})"
-                                            class="btn btn-sm btn-danger rounded-circle d-flex align-items-center justify-content-center"
-                                            style="width:28px;height:28px;padding:0;" title="Supprimer">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                    <button type="button" onclick='confirmDelete({{ collaborateur.id }})'
+        class="btn btn-sm btn-danger rounded-circle d-flex align-items-center justify-content-center"
+        style="width:28px;height:28px;padding:0;" title="Supprimer">
+    <i class="fas fa-trash"></i>
+</button>
                                 </div>
                             </td>
                             <td>{{ collaborateur.nom }}</td>
@@ -106,26 +110,51 @@ function confirmDelete(id) {
     }
 }
 
-function sortTable(column) {
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentSort = urlParams.get('sort_by');
-    const currentOrder = urlParams.get('sort_order');
-    
-    let newOrder = 'asc';
-    if (currentSort === column && currentOrder === 'asc') {
-        newOrder = 'desc';
-    }
-    
-    urlParams.set('sort_by', column);
-    urlParams.set('sort_order', newOrder);
-    
-    // Preserve search term if it exists
-    const searchTerm = urlParams.get('search');
-    if (searchTerm) {
-        urlParams.set('search', searchTerm);
-    }
-    
-    window.location.href = window.location.pathname + "?" + urlParams.toString();
-}
+// Table sorting logic
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.sortable a').forEach(function(anchor) {
+        anchor.addEventListener('click', function(e) {
+            e.preventDefault();
+            var th = anchor.closest('th');
+            var table = th.closest('table');
+            var tbody = table.querySelector('tbody');
+            var colIndex = parseInt(th.getAttribute('data-col-index'));
+            var type = th.getAttribute('data-type');
+            var rows = Array.from(tbody.querySelectorAll('tr'));
+            var asc = !th.classList.contains('asc');
+            rows.sort(function(a, b) {
+                var getCell = function(row) {
+                    var cell = row.children[colIndex];
+                    return cell ? cell.textContent.trim() : '';
+                };
+                var valA = getCell(a), valB = getCell(b);
+                if(type === 'date') {
+                    var parseDate = function(s) {
+                        var parts = s.split('/');
+                        return parts.length === 3 ? new Date(parts[2], parts[1]-1, parts[0]).getTime() : 0;
+                    };
+                    valA = parseDate(valA) || 0;
+                    valB = parseDate(valB) || 0;
+                } else if(type === 'number') {
+                    valA = parseFloat(valA.replace(/[^\d.-]/g, '')) || 0;
+                    valB = parseFloat(valB.replace(/[^\d.-]/g, '')) || 0;
+                } else {
+                    valA = valA.toLowerCase();
+                    valB = valB.toLowerCase();
+                }
+                if(valA < valB) return asc ? -1 : 1;
+                if(valA > valB) return asc ? 1 : -1;
+                return 0;
+            });
+            // Remove asc/desc from all sortable th
+            th.parentElement.querySelectorAll('.sortable').forEach(function(th2) {
+                th2.classList.remove('asc', 'desc');
+            });
+            th.classList.toggle('asc', asc);
+            th.classList.toggle('desc', !asc);
+            rows.forEach(function(row) { tbody.appendChild(row); });
+        });
+    });
+});
 </script>
 {% endblock %}

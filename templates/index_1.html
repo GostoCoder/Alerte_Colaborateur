@@ -33,21 +33,21 @@
             </form>
 
             <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Actions</th>
-                            <th>Nom</th>
-                            <th>Prénom</th>
-                            <th>FIMO</th>
-                            <th>CACES</th>
-                            <th>AIPR</th>
-                            <th>H0B0</th>
-                            <th>Visite Médicale</th>
-                            <th>Brevet Secouriste</th>
-                            <th>Commentaire</th>
-                        </tr>
-                    </thead>
+                <table id="collab-table" class="table table-striped">
+<thead>
+    <tr>
+        <th>Actions</th>
+        <th class="sortable">Nom</th>
+        <th class="sortable">Prénom</th>
+        <th class="sortable">FIMO</th>
+        <th class="sortable">CACES</th>
+        <th class="sortable">AIPR</th>
+        <th class="sortable">H0B0</th>
+        <th class="sortable">Visite Médicale</th>
+        <th class="sortable">Brevet Secouriste</th>
+        <th class="sortable">Commentaire</th>
+    </tr>
+</thead>
                     <tbody>
                         {% for collaborateur in collaborateurs %}
                         <tr>
@@ -86,5 +86,59 @@ function confirmDelete(id, name) {
         window.location.href = "/delete_collaborateur_route_1/" + id;
     }
 }
+</script>
+<script>
+// Simple table sorter for the collaborators table
+document.addEventListener('DOMContentLoaded', function () {
+  const table = document.getElementById('collab-table');
+  if (!table) return;
+  const tbody = table.querySelector('tbody');
+  const headers = table.querySelectorAll('thead th');
+  headers.forEach((th, idx) => {
+    // Skip non-sortable columns (Actions)
+    if (th.textContent.trim() === 'Actions') return;
+    th.style.cursor = 'pointer';
+    th.dataset.sortDir = 'none';
+    th.addEventListener('click', () => {
+      // Toggle direction
+      const dir = th.dataset.sortDir === 'asc' ? 'desc' : 'asc';
+      headers.forEach(h => { if (h !== th) h.dataset.sortDir = 'none'; h.querySelector('.sort-indicator')?.remove(); });
+      th.dataset.sortDir = dir;
+
+      // Get rows as array
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.sort((a, b) => {
+        const aText = (a.children[idx]?.textContent || '').trim();
+        const bText = (b.children[idx]?.textContent || '').trim();
+
+        // Try numeric
+        const aNum = parseFloat(aText.replace(',', '.'));
+        const bNum = parseFloat(bText.replace(',', '.'));
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return dir === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+
+        // Try date
+        const aTime = Date.parse(aText);
+        const bTime = Date.parse(bText);
+        if (!isNaN(aTime) && !isNaN(bTime)) {
+          return dir === 'asc' ? aTime - bTime : bTime - aTime;
+        }
+
+        // Fallback string compare (localeCompare)
+        return dir === 'asc' ? aText.localeCompare(bText, undefined, {numeric:true, sensitivity:'base'}) : bText.localeCompare(aText, undefined, {numeric:true, sensitivity:'base'});
+      });
+
+      // Reattach rows
+      rows.forEach(r => tbody.appendChild(r));
+
+      // Add indicator
+      const indicator = document.createElement('span');
+      indicator.className = 'sort-indicator';
+      indicator.textContent = dir === 'asc' ? ' ▲' : ' ▼';
+      th.appendChild(indicator);
+    });
+  });
+});
 </script>
 {% endblock %}
