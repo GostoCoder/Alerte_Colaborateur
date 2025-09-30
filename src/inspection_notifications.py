@@ -50,7 +50,7 @@ except (TypeError, ValueError):
     raise ValueError("SMTP_PORT must be a valid integer")
 
 # Database configuration
-SQLALCHEMY_DATABASE_URL = "sqlite:///database_management_1.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:///./database_management_1.db"
 try:
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -63,9 +63,27 @@ TIMEZONE = ZoneInfo("Europe/Paris")
 
 
 def clean_value(value):
-    """Clean a string value by replacing non-breaking spaces."""
+    """Clean a string value by replacing common non-breaking spaces and trimming.
+
+    Handles:
+    - unicode non-breaking spaces (U+00A0), \xa0
+    - zero-width space (U+200B)
+    - bytes values (decoded as utf-8)
+    - leaves non-string values untouched
+    """
+    if isinstance(value, bytes):
+        try:
+            value = value.decode("utf-8", errors="ignore")
+        except Exception:
+            return value
     if isinstance(value, str):
-        return value.replace("\xa0", " ")
+        # Replace common non-breaking space characters with a normal space,
+        # remove zero-width spaces, normalize multiple spaces, then trim.
+        value = value.replace("\u00A0", " ").replace("\xa0", " ").replace("\u200b", "")
+        # Collapse multiple spaces into single space
+        import re
+        value = re.sub(r"\s+", " ", value).strip()
+        return value
     return value
 
 
@@ -144,115 +162,123 @@ def _parse_date_string(s):
 
 
 def check_inspection_dates():
-    """Check all date fields in all tables and send notifications if needed."""
+    """Check date fields in the 'collaborateurs' table and send notifications if needed."""
     db = None
     try:
         db = get_db()
         today = get_current_date()
         window_end = today + timedelta(days=14)
         logger.info(
-            f"Checking all date fields between {today} and {window_end} (inclusive)"
+            f"Checking date fields in 'collaborateurs' between {today} and {window_end} (inclusive)"
         )
 
         metadata = MetaData()
-        metadata.reflect(bind=engine)
+        # Reflect only the collaborateurs table to avoid scanning other tables
+        try:
+            metadata.reflect(bind=engine, only=["collaborateurs"])
+        except Exception as e:
+            logger.error(f"Failed to reflect 'collaborateurs' table: {e}")
+            return
+
+        table = metadata.tables.get("collaborateurs")
+        if table is None:
+            logger.info("No 'collaborateurs' table found in the database.")
+            return
+
         notifications_by_row = {}
 
-        for table_name, table in metadata.tables.items():
-            logger.info(f"Scanning table: {table_name}")
-            # Find date-like columns by type or name
-            date_columns = [
-                col
-                for col in table.columns
-                if (
-                    isinstance(col.type, (types.Date, types.DateTime))
-                    or "date" in col.name.lower()
-                    or "limit" in col.name.lower()
-                    or "expiry" in col.name.lower()
-                    or "ifo" in col.name.lower()
-                    or "caces" in col.name.lower()
-                    or "airr" in col.name.lower()
-                    or "hgo" in col.name.lower()
-                    or "bo" in col.name.lower()
-                    or "visite_med" in col.name.lower()
-                    or "brevet_secour" in col.name.lower()
-                )
-            ]
-            if date_columns:
-                logger.info(
-                    f"  Identified date columns: {[col.name for col in date_columns]}"
-                )
-            # For each row in the table
-            rows = db.execute(table.select()).fetchall()
-            for row in rows:
-                # Robust conversion for SQLAlchemy Row objects, with data cleaning
-                if hasattr(row, "_mapping"):
-                    row_dict = {k: clean_value(v) for k, v in row._mapping.items()}
-                elif hasattr(row, "items"):
-                    row_dict = {k: clean_value(v) for k, v in row.items()}
-                else:
-                    row_dict = {
-                        col.name: clean_value(row[idx])
-                        for idx, col in enumerate(table.columns)
-                    }
-                due_items = []
-                for col in date_columns:
-                    date_val = row_dict.get(col.name)
-                    if not date_val:
+        logger.info(f"Scanning table: collaborateurs")
+        # Find date-like columns by type or name (same heuristics as before)
+        date_columns = [
+            col
+            for col in table.columns
+            if (
+                isinstance(col.type, (types.Date, types.DateTime))
+                or "date" in col.name.lower()
+                or "limit" in col.name.lower()
+                or "expiry" in col.name.lower()
+                or "ifo" in col.name.lower()
+                or "caces" in col.name.lower()
+                or "airr" in col.name.lower()
+                or "hgo" in col.name.lower()
+                or "bo" in col.name.lower()
+                or "visite_med" in col.name.lower()
+                or "brevet_secour" in col.name.lower()
+            )
+        ]
+        if date_columns:
+            logger.info(f"  Identified date columns: {[col.name for col in date_columns]}")
+
+        # For each row in the collaborateurs table
+        rows = db.execute(table.select()).fetchall()
+        for row in rows:
+            if hasattr(row, "_mapping"):
+                row_dict = {k: clean_value(v) for k, v in row._mapping.items()}
+            elif hasattr(row, "items"):
+                row_dict = {k: clean_value(v) for k, v in row.items()}
+            else:
+                row_dict = {
+                    col.name: clean_value(row[idx]) for idx, col in enumerate(table.columns)
+                }
+
+            due_items = []
+            for col in date_columns:
+                date_val = row_dict.get(col.name)
+                if not date_val:
+                    continue
+                try:
+                    if isinstance(date_val, str):
+                        date_obj = _parse_date_string(date_val)
+                    elif isinstance(date_val, datetime):
+                        date_obj = date_val.date()
+                    elif isinstance(date_val, date):
+                        date_obj = date_val
+                    else:
                         continue
-                    # Try to parse date
-                    try:
-                        if isinstance(date_val, str):
-                            date_obj = _parse_date_string(date_val)
-                        elif isinstance(date_val, datetime):
-                            date_obj = date_val.date()
-                        elif isinstance(date_val, date):
-                            date_obj = date_val
-                        else:
-                            continue
-                        if date_obj is None:
-                            logger.warning(
-                                f"Could not parse date for {col.name} in {table_name}: {date_val}"
-                            )
-                            continue
-                    except Exception:
+                    if date_obj is None:
                         logger.warning(
-                            f"Could not parse date for {col.name} in {table_name}: {date_val}"
+                            f"Could not parse date for {col.name} in collaborateurs: {date_val}"
                         )
                         continue
-                    if not validate_date(date_obj):
+                except Exception:
+                    logger.warning(
+                        f"Could not parse date for {col.name} in collaborateurs: {date_val}"
+                    )
+                    continue
+
+                if not validate_date(date_obj):
+                    continue
+
+                if today <= date_obj <= window_end:
+                    completion_col = None
+                    if col.name.startswith("limit_"):
+                        completion_col = "date_" + col.name[len("limit_") :]
+                    elif col.name.startswith("Limit "):
+                        completion_col = "Date " + col.name[len("Limit "):]
+                    if (
+                        completion_col
+                        and completion_col in row_dict
+                        and row_dict[completion_col]
+                    ):
                         continue
-                    # Inclusive range check
-                    if today <= date_obj <= window_end:
-                        # If there is a matching completion column, check if completed
-                        completion_col = None
-                        if col.name.startswith("limit_"):
-                            completion_col = "date_" + col.name[len("limit_") :]
-                        elif col.name.startswith("Limit "):
-                            completion_col = "Date " + col.name[len("Limit ") :]
-                        if (
-                            completion_col
-                            and completion_col in row_dict
-                            and row_dict[completion_col]
-                        ):
-                            continue  # Already completed
-                        days_until = (date_obj - today).days
-                        due_items.append(
-                            {
-                                "field": col.name,
-                                "due_date": date_obj.strftime("%Y-%m-%d"),
-                                "days_until": days_until,
-                                "comments": clean_value(row_dict.get("comments", "")),
-                                "message": f"{col.name} due in {days_until} days",
-                            }
-                        )
-                if due_items:
-                    notifications_by_row[(table_name, row_dict.get("id"))] = {
-                        "table": table_name,
-                        "row_id": row_dict.get("id"),
-                        "row_data": row_dict,
-                        "due_items": due_items,
-                    }
+                    days_until = (date_obj - today).days
+                    due_items.append(
+                        {
+                            "field": col.name,
+                            "due_date": date_obj.strftime("%Y-%m-%d"),
+                            "days_until": days_until,
+                            "comments": clean_value(row_dict.get("comments", "")),
+                            "message": f"{col.name} due in {days_until} days",
+                        }
+                    )
+
+            if due_items:
+                notifications_by_row[("collaborateurs", row_dict.get("id"))] = {
+                    "table": "collaborateurs",
+                    "row_id": row_dict.get("id"),
+                    "row_data": row_dict,
+                    "due_items": due_items,
+                }
 
         if not notifications_by_row:
             logger.info(f"No notifications needed for {today}")
@@ -417,7 +443,6 @@ def check_inspection_dates():
     finally:
         if db:
             db.close()
-
 
 def send_notification_email(server, vehicle, notifications):
     """Send notification email for a specific vehicle."""
