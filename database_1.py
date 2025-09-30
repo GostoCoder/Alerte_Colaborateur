@@ -12,14 +12,11 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
-    """Context manager for database session."""
-    class DBContext:
-        def __enter__(self):
-            self.db = SessionLocal()
-            return self.db
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            self.db.close()
-    return DBContext()
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 def init_db():
     logger.info("Creating database tables")
