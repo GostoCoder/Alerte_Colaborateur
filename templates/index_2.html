@@ -32,45 +32,16 @@
                 </div>
             </form>
 
-            <style>
-                .sortable {
-                    cursor: pointer;
-                    position: relative;
-                    padding-right: 20px !important;
-                }
-                .sortable:after {
-                    content: '↕';
-                    position: absolute;
-                    right: 5px;
-                    color: #999;
-                }
-                .sortable.asc:after {
-                    content: '↑';
-                    color: #000;
-                }
-                .sortable.desc:after {
-                    content: '↓';
-                    color: #000;
-                }
-            </style>
 
             <div class="table-responsive">
-                <table class="table table-striped">
+                <table id="collab-table" class="table table-striped">
                     <thead>
                         <tr>
                             <th>Actions</th>
-<th class="sortable {{ 'asc' if sort_by == 'nom' and sort_order == 'asc' else 'desc' if sort_by == 'nom' else '' }}" data-col-index="1" data-type="text">
-    <a href="{{ url_for('index_2', sort_by='nom', sort_order='desc' if sort_by=='nom' and sort_order=='asc' else 'asc', search=search_term) }}" style="text-decoration:none;color:inherit;">Nom</a>
-</th>
-<th class="sortable {{ 'asc' if sort_by == 'prenom' and sort_order == 'asc' else 'desc' if sort_by == 'prenom' else '' }}" data-col-index="2" data-type="text">
-    <a href="{{ url_for('index_2', sort_by='prenom', sort_order='desc' if sort_by=='prenom' and sort_order=='asc' else 'asc', search=search_term) }}" style="text-decoration:none;color:inherit;">Prénom</a>
-</th>
-<th class="sortable {{ 'asc' if sort_by == 'date_renouvellement' and sort_order == 'asc' else 'desc' if sort_by == 'date_renouvellement' else '' }}" data-col-index="3" data-type="date">
-    <a href="{{ url_for('index_2', sort_by='date_renouvellement', sort_order='desc' if sort_by=='date_renouvellement' and sort_order=='asc' else 'asc', search=search_term) }}" style="text-decoration:none;color:inherit;">Date de Renouvellement</a>
-</th>
-<th class="sortable {{ 'asc' if sort_by == 'date_validite' and sort_order == 'asc' else 'desc' if sort_by == 'date_validite' else '' }}" data-col-index="4" data-type="date">
-    <a href="{{ url_for('index_2', sort_by='date_validite', sort_order='desc' if sort_by=='date_validite' and sort_order=='asc' else 'asc', search=search_term) }}" style="text-decoration:none;color:inherit;">Date de Validité</a>
-</th>
+<th class="sortable">Nom</th>
+<th class="sortable">Prénom</th>
+<th class="sortable">Date de Renouvellement</th>
+<th class="sortable">Date de Validité</th>
                             <th>Commentaire</th>
                         </tr>
                     </thead>
@@ -109,52 +80,72 @@ function confirmDelete(id) {
         window.location.href = "/delete_collaborateur_route_2/" + id;
     }
 }
+</script>
+<script>
+// Simple table sorter for the collaborators table (copied from index_1.html, adjusted for compatibility)
+document.addEventListener('DOMContentLoaded', function () {
+  var table = document.getElementById('collab-table');
+  if (!table) return;
+  var tbody = table.querySelector('tbody');
+  var headers = table.querySelectorAll('thead th');
+  headers.forEach(function(th, idx) {
+    // Skip non-sortable columns (Actions)
+    if (th.textContent.trim() === 'Actions') return;
+    th.style.cursor = 'pointer';
+    th.dataset.sortDir = 'none';
+    th.addEventListener('click', function() {
+      // Toggle direction
+      var dir = th.dataset.sortDir === 'asc' ? 'desc' : 'asc';
+      headers.forEach(function(h) {
+        if (h !== th) {
+          h.dataset.sortDir = 'none';
+          var ex = h.querySelector('.sort-indicator');
+          if (ex) ex.remove();
+        } else {
+          var ex2 = h.querySelector('.sort-indicator');
+          if (ex2) ex2.remove();
+        }
+      });
+      th.dataset.sortDir = dir;
 
-// Table sorting logic
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.sortable a').forEach(function(anchor) {
-        anchor.addEventListener('click', function(e) {
-            e.preventDefault();
-            var th = anchor.closest('th');
-            var table = th.closest('table');
-            var tbody = table.querySelector('tbody');
-            var colIndex = parseInt(th.getAttribute('data-col-index'));
-            var type = th.getAttribute('data-type');
-            var rows = Array.from(tbody.querySelectorAll('tr'));
-            var asc = !th.classList.contains('asc');
-            rows.sort(function(a, b) {
-                var getCell = function(row) {
-                    var cell = row.children[colIndex];
-                    return cell ? cell.textContent.trim() : '';
-                };
-                var valA = getCell(a), valB = getCell(b);
-                if(type === 'date') {
-                    var parseDate = function(s) {
-                        var parts = s.split('/');
-                        return parts.length === 3 ? new Date(parts[2], parts[1]-1, parts[0]).getTime() : 0;
-                    };
-                    valA = parseDate(valA) || 0;
-                    valB = parseDate(valB) || 0;
-                } else if(type === 'number') {
-                    valA = parseFloat(valA.replace(/[^\d.-]/g, '')) || 0;
-                    valB = parseFloat(valB.replace(/[^\d.-]/g, '')) || 0;
-                } else {
-                    valA = valA.toLowerCase();
-                    valB = valB.toLowerCase();
-                }
-                if(valA < valB) return asc ? -1 : 1;
-                if(valA > valB) return asc ? 1 : -1;
-                return 0;
-            });
-            // Remove asc/desc from all sortable th
-            th.parentElement.querySelectorAll('.sortable').forEach(function(th2) {
-                th2.classList.remove('asc', 'desc');
-            });
-            th.classList.toggle('asc', asc);
-            th.classList.toggle('desc', !asc);
-            rows.forEach(function(row) { tbody.appendChild(row); });
-        });
+      // Get rows as array
+      var rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.sort(function(a, b) {
+        var aCell = a.children[idx] && a.children[idx].textContent ? a.children[idx].textContent.trim() : '';
+        var bCell = b.children[idx] && b.children[idx].textContent ? b.children[idx].textContent.trim() : '';
+
+        // Try numeric
+        var aNum = parseFloat(aCell.replace(',', '.'));
+        var bNum = parseFloat(bCell.replace(',', '.'));
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return dir === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+
+        // Try date (dd/mm/yyyy)
+        var parseDate = function(s) {
+          var parts = s.split('/');
+          return parts.length === 3 ? new Date(parts[2], parts[1]-1, parts[0]).getTime() : NaN;
+        };
+        var aTime = parseDate(aCell);
+        var bTime = parseDate(bCell);
+        if (!isNaN(aTime) && !isNaN(bTime)) {
+          return dir === 'asc' ? aTime - bTime : bTime - aTime;
+        }
+
+        // Fallback string compare (localeCompare)
+        return dir === 'asc' ? aCell.localeCompare(bCell, undefined, {numeric:true, sensitivity:'base'}) : bCell.localeCompare(aCell, undefined, {numeric:true, sensitivity:'base'});
+      });
+
+      // Reattach rows
+      rows.forEach(function(r) { tbody.appendChild(r); });
+
+      // Add indicator (same UI as index_1)
+      var indicator = document.createElement('span');
+      indicator.className = 'sort-indicator';
+      indicator.textContent = dir === 'asc' ? ' ▲' : ' ▼';
+      th.appendChild(indicator);
     });
+  });
 });
 </script>
 {% endblock %}
