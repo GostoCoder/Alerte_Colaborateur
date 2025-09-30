@@ -10,58 +10,27 @@ load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
-def get_vehicle_identifier(vehicle_data):
-    """Get the vehicle identifier (license plate or serial number)"""
-    if "license_plate" in vehicle_data:
-        return vehicle_data["license_plate"]
-    elif "serial_number" in vehicle_data:
-        return vehicle_data["serial_number"]
-    return "Véhicule Inconnu"
+def get_collaborateur_summary(row):
+    """Return a short summary string for a collaborator row_data dict"""
+    if not isinstance(row, dict):
+        return "Nom: N/A  Prénom: N/A  Commentaires: Aucun commentaire"
+    nom = row.get("nom", "N/A")
+    prenom = row.get("prenom", "N/A")
+    commentaire = row.get("commentaire", "Aucun commentaire")
+    return f"Nom: {nom}  Prénom: {prenom}  Commentaires: {commentaire}"
 
 
-def get_vehicle_details(vdata):
-    """Get vehicle details based on available fields"""
+def get_collaborateur_details(row):
+    """Get collaborateur details from a row_data dict"""
     details = []
-
-    # Basic info
-    details.append(
-        f"- Marque/Modèle: {vdata.get('brand', 'N/A')} "
-        f"{vdata.get('commercial_type', 'N/A')}"
-    )
-    details.append(f"- Type: {vdata.get('vehicle_type', 'N/A')}")
-    details.append(f"- Groupe: {vdata.get('group_number', 'N/A')}")
-
-    # Technical details - database 4
-    if "engine_type" in vdata:
-        details.extend(
-            [
-                f"- Type de moteur: {vdata.get('engine_type', 'N/A')}",
-                f"- Puissance: {vdata.get('power', 'N/A')}",
-                f"- Poids: {vdata.get('weight', 'N/A')}",
-                f"- Heures: {vdata.get('hours', 'N/A')}",
-            ]
-        )
-
-    # Technical details - database 2 & 3
-    if "payload" in vdata:
-        details.extend(
-            [
-                f"- Charge utile: {vdata.get('payload', 'N/A')}",
-                f"- PTAC: {vdata.get('gvw', 'N/A')}",
-                f"- PTRA: {vdata.get('mam', 'N/A')}",
-            ]
-        )
-
-    # Common fields
-    details.extend(
-        [
-            f"- Carrosserie: {vdata.get('body_type', 'N/A')}",
-            f"- Travaille avec: {vdata.get('work_with', 'Non spécifié')}",
-            f"- Kilométrage: {vdata.get('kilometers', 'N/A')}",
-            f"- Commentaires: {vdata.get('comments', 'Aucun commentaire')}",
-        ]
-    )
-
+    if not isinstance(row, dict):
+        return details
+    details.append(f"- Nom: {row.get('nom', 'N/A')}")
+    details.append(f"- Prénom: {row.get('prenom', 'N/A')}")
+    if row.get("habilitations"):
+        details.append(f"- Habilitations: {row.get('habilitations')}")
+    if row.get("commentaire"):
+        details.append(f"- Commentaire: {row.get('commentaire')}")
     return details
 
 
@@ -70,32 +39,25 @@ def generate_email_content(vehicle, notifications):
     try:
         # Create a detailed prompt for ChatGPT in French
         prompt = f"""
-        Tu es une intelligence artificielle qui rédige des mails en français. 
-        Tu es spécialisée dans la gestion de la maintenance des véhicules pour 
-        l'entreprise Bourgeois Travaux Publics, une PME familiale fondée en 1929 
-        et située à Saint-Denis. Cette entreprise, dirigée par les fils 
-        Frédéric et Nicolas GERNEZ, compte 57 salariés et intervient dans des 
-        domaines tels que le terrassement, l'assainissement, la voirie, le 
-        pavage, le revêtement et le dallage.
+        Tu es une intelligence artificielle qui rédige des mails en français.
+        Tu es spécialisée dans la gestion des habilitations du personnel pour
+        l'entreprise Bourgeois Travaux Publics, une PME familiale fondée en 1929
+        et située à Saint-Denis. Cette entreprise, dirigée par les fils
+        Frédéric et Nicolas GERNEZ, compte 57 salariés.
 
-        Ta mission est d'envoyer des e-mails de rappel au mécanicien responsable 
-        de l'entretien des véhicules de l'entreprise, afin de l'informer des 
-        dates imminentes de contrôle technique pour chaque véhicule.
+        Ta mission est d'envoyer des e-mails de rappel au responsable RH ou au
+        destinataire concerné (Commence par saluer Chantal) pour informer des
+        dates imminentes de validité d'habilitations des collaborateurs.
 
-        Informations détaillées du Véhicule :
+        Informations détaillées du Collaborateur :
         {chr(10).join([
-            f"- {get_vehicle_identifier(n['vehicle_data'])} "
-            f"({n['vehicle_data']['brand']} {n['vehicle_data']['commercial_type']}):" 
-            + chr(10) +
-            chr(10).join(f"  * {detail}" 
-            for detail in get_vehicle_details(n['vehicle_data']))
+            f"- Nom: {n.get('row_data', {}).get('nom','N/A')}  Prénom: {n.get('row_data', {}).get('prenom','N/A')}  |  Habilitation: {n.get('field','Habilitation')}  |  Validité: {n.get('due_date','Date inconnue')}"
             for n in notifications
         ]) if isinstance(notifications, list) else str(notifications)}
         
         Notifications et Dates Limites :
         {chr(10).join([
-            f"- {n['type']} pour {get_vehicle_identifier(n['vehicle_data'])} "
-            f"prévu pour le {n['due_date']} : {n['message']}" 
+            f"- {n.get('field','Type inconnu')} pour {n.get('row_data', {}).get('nom','N/A')} {n.get('row_data', {}).get('prenom','N/A')} prévu pour le {n.get('due_date','Date inconnue')} : {n.get('message','')}"
             for n in notifications
         ]) if isinstance(notifications, list) else str(notifications)}
         """
@@ -107,7 +69,7 @@ def generate_email_content(vehicle, notifications):
                 {
                     "role": "system",
                     "content": "You are an AI assistant specialized in writing "
-                    "professional emails in French for vehicle maintenance management.",
+                    "professional emails in French for personnel habilitations management.",
                 },
                 {"role": "user", "content": prompt},
             ],
