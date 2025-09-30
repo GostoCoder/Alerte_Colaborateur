@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import create_engine, and_, or_
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
-from models_2 import Vehicle2 as Vehicle, Base  # Renamed Vehicle to Vehicle2
+from models_2 import CollaborateurPoidsLouud as Collaborateur
 import logging
 from gemini_service import generate_email_content
 #from chatgpt_service import generate_email_content
@@ -97,112 +97,78 @@ def validate_date_field(date_obj):
     return date_obj <= max_future_date
 
 
+def parse_date(value):
+    """Parse a value as a date, supporting date, datetime, and string formats."""
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, str):
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+            try:
+                return datetime.strptime(value.strip(), fmt).date()
+            except Exception:
+                continue
+    return None
+
+def get_collaborateur_notifications(collaborateur, today, two_weeks_later):
+    """Extract notifications for a collaborateur (date_renouvellement, date_validite)."""
+    notifications = []
+    for field, label in [
+        ("date_renouvellement", "Date de renouvellement"),
+        ("date_validite", "Date de validité")
+    ]:
+        raw = getattr(collaborateur, field, None)
+        expiry_date = parse_date(raw)
+        if expiry_date and validate_date_field(expiry_date) and today <= expiry_date <= two_weeks_later:
+            days_until = (expiry_date - today).days
+            notifications.append({
+                'type': label,
+                'collaborateur_id': collaborateur.id,
+                'vehicle_data': {
+                    'license_plate': f"{collaborateur.nom} {collaborateur.prenom}",
+                    'comments': getattr(collaborateur, 'commentaire', None)
+                },
+                'due_date': expiry_date.strftime('%Y-%m-%d'),
+                'message': f'{label} à renouveler dans {days_until} jours',
+                'days_until': days_until
+            })
+    return notifications
+
 def check_inspection_dates():
-    """Check vehicle inspection dates and send notifications if needed."""
+    """Check collaborateur inspection dates and send notifications if needed."""
     db = None
     try:
         db = get_db()
         today = get_current_date()
         two_weeks_later = today + timedelta(days=14)
-        
+
         logger.info(f"Checking inspections between {today} and {two_weeks_later} for database_management_2.db")
-        
-        # Query vehicles that need inspection notifications using efficient filtering
-        # Only get vehicles that have due dates within the 2-week window and no corresponding completion dates
-        vehicles = db.query(Vehicle).filter(
+
+        collaborateurs = db.query(Collaborateur).filter(
             or_(
-                and_(
-                    Vehicle.ct_soeco_date.isnot(None),
-                    Vehicle.ct_soeco_date >= today,
-                    Vehicle.ct_soeco_date <= two_weeks_later,
-                    Vehicle.date_technical_inspection.is_(None)
-                ),
-                and_(
-                    Vehicle.euromaster_chrono.isnot(None),
-                    Vehicle.euromaster_chrono >= today,
-                    Vehicle.euromaster_chrono <= two_weeks_later,
-                    Vehicle.date_chrono.is_(None)
-                ),
-                and_(
-                    Vehicle.euromaster_limiteur.isnot(None),
-                    Vehicle.euromaster_limiteur >= today,
-                    Vehicle.euromaster_limiteur <= two_weeks_later,
-                    Vehicle.date_limiteur.is_(None)
-                ),
-                and_(
-                    Vehicle.ned92_chrono.isnot(None),
-                    Vehicle.ned92_chrono >= today,
-                    Vehicle.ned92_chrono <= two_weeks_later,
-                    Vehicle.date_chrono.is_(None)
-                ),
-                and_(
-                    Vehicle.ned92_limiteur.isnot(None),
-                    Vehicle.ned92_limiteur >= today,
-                    Vehicle.ned92_limiteur <= two_weeks_later,
-                    Vehicle.date_limiteur.is_(None)
-                )
+                Collaborateur.date_renouvellement.isnot(None),
+                Collaborateur.date_validite.isnot(None)
             )
         ).all()
-        
-        if not vehicles:
+
+        if not collaborateurs:
             logger.info(f"No notifications needed for {today}")
             return
-        
-        logger.info(f"Found {len(vehicles)} vehicles requiring notifications")
-        
-        # Helper function to create notification entry
-        def create_notification_entry(vehicle, inspection_type, due_date_field, actual_date_field, message_text, notifications, today, two_weeks_later):
-            due_date = getattr(vehicle, due_date_field, None)
-            actual_date = getattr(vehicle, actual_date_field, None)
 
-            if due_date and validate_date_field(due_date):
-                # Ensure due_date is a date object after validation
-                if isinstance(due_date, str):
-                    due_date = datetime.strptime(due_date, '%Y-%m-%d').date()
-                
-                if today <= due_date <= two_weeks_later and not actual_date:
-                    days_until = (due_date - today).days
-                    notifications.append({
-                        'type': inspection_type,
-                        'vehicle_data': {
-                            'id': vehicle.id,
-                            'license_plate': vehicle.license_plate,
-                            'vehicle_type': vehicle.vehicle_type,
-                            'brand': vehicle.brand,
-                            'commercial_type': vehicle.commercial_type,
-                            'group_number': vehicle.group_number,
-                            'work_with': getattr(vehicle, 'work_with', None),
-                            'kilometer_additional_inspection': getattr(vehicle, 'kilometer_additional_inspection', None),
-                            'ct_soeco_date': vehicle.ct_soeco_date.strftime('%Y-%m-%d') if vehicle.ct_soeco_date else None,
-                            'euromaster_chrono': vehicle.euromaster_chrono.strftime('%Y-%m-%d') if vehicle.euromaster_chrono else None,
-                            'euromaster_limiteur': vehicle.euromaster_limiteur.strftime('%Y-%m-%d') if vehicle.euromaster_limiteur else None,
-                            'ned92_chrono': vehicle.ned92_chrono.strftime('%Y-%m-%d') if vehicle.ned92_chrono else None,
-                            'ned92_limiteur': vehicle.ned92_limiteur.strftime('%Y-%m-%d') if vehicle.ned92_limiteur else None,
-                            'date_technical_inspection': vehicle.date_technical_inspection.strftime('%Y-%m-%d') if vehicle.date_technical_inspection else None,
-                            'date_chrono': vehicle.date_chrono.strftime('%Y-%m-%d') if vehicle.date_chrono else None,
-                            'date_limiteur': vehicle.date_limiteur.strftime('%Y-%m-%d') if vehicle.date_limiteur else None,
-                            'comments': vehicle.comments,
-                            'created_at': vehicle.created_at.strftime('%Y-%m-%d %H:%M:%S') if vehicle.created_at else None,
-                            'updated_at': vehicle.updated_at.strftime('%Y-%m-%d %H:%M:%S') if vehicle.updated_at else None
-                        },
-                        'due_date': due_date.strftime('%Y-%m-%d'),
-                        'message': f'{message_text} dans {days_until} jours',
-                        'days_until': days_until,
-                        'comments': vehicle.comments
-                    })
+        logger.info(f"Found {len(collaborateurs)} collaborateurs requiring notifications")
 
-        # Prepare and send emails
         try:
-            # Type checking for SMTP parameters
             if SMTP_SERVER is None or SMTP_PORT is None:
                 raise ValueError("SMTP_SERVER and SMTP_PORT must be configured")
-            
+
             logger.info(f"Connecting to Gmail SMTP server {SMTP_SERVER}:{SMTP_PORT} using STARTTLS...")
             with smtplib.SMTP(SMTP_SERVER, int(SMTP_PORT), timeout=30) as server:
-                server.starttls()  # Enable security for Gmail
+                server.starttls()
                 logger.info("STARTTLS enabled, attempting login...")
                 try:
-                    # Type checking for authentication parameters
                     if SENDER_EMAIL is None or SENDER_PASSWORD is None:
                         raise ValueError("SENDER_EMAIL and SENDER_PASSWORD must be configured")
                     server.login(SENDER_EMAIL, SENDER_PASSWORD)
@@ -216,25 +182,18 @@ def check_inspection_dates():
                     logger.error("4. Check Gmail account settings allow IMAP/SMTP access")
                     return
 
-                for vehicle in vehicles:
+                for collaborateur in collaborateurs:
                     try:
-                        notifications = []
-                        
-                        create_notification_entry(vehicle, 'CT SOECO', 'ct_soeco_date', 'date_technical_inspection', 'Contrôle technique SOECO à effectuer', notifications, today, two_weeks_later)
-                        create_notification_entry(vehicle, 'Euromaster Chrono', 'euromaster_chrono', 'date_chrono', 'Contrôle chronotachygraphe Euromaster à effectuer', notifications, today, two_weeks_later)
-                        create_notification_entry(vehicle, 'Euromaster Limiteur', 'euromaster_limiteur', 'date_limiteur', 'Contrôle limiteur Euromaster à effectuer', notifications, today, two_weeks_later)
-                        create_notification_entry(vehicle, 'NED92 Chrono', 'ned92_chrono', 'date_chrono', 'Contrôle chronotachygraphe NED92 à effectuer', notifications, today, two_weeks_later)
-                        create_notification_entry(vehicle, 'NED92 Limiteur', 'ned92_limiteur', 'date_limiteur', 'Contrôle limiteur NED92 à effectuer', notifications, today, two_weeks_later)
-
+                        notifications = get_collaborateur_notifications(collaborateur, today, two_weeks_later)
                         if notifications:
-                            send_notification_email(server, vehicle, notifications)
-                
+                            send_notification_email(server, collaborateur, notifications)
+
                     except Exception as e:
-                        logger.error(f"Error processing vehicle {getattr(vehicle, 'license_plate', 'N/A')} (ID: {getattr(vehicle, 'id', 'N/A')}): {e}")
+                        logger.error(f"Error processing collaborateur {getattr(collaborateur, 'nom', 'N/A')} {getattr(collaborateur, 'prenom', 'N/A')} (ID: {getattr(collaborateur, 'id', 'N/A')}): {e}")
                         continue
         except smtplib.SMTPException as e:
             logger.error(f"Email server error in check_inspection_dates: {e}")
-                
+
     except SQLAlchemyError as e:
         logger.error(f"Database error in check_inspection_dates: {e}")
     except Exception as e:
@@ -243,12 +202,11 @@ def check_inspection_dates():
         if db:
             db.close()
 
-def send_notification_email(server, vehicle, notifications):
-    """Send notification email for a specific vehicle."""
+def send_notification_email(server, collaborateur, notifications):
+    """Send notification email for a specific collaborateur."""
     try:
-        subject, body = generate_email_content(vehicle, notifications)
-        
-        # Always send to first recipient
+        subject, body = generate_email_content(collaborateur, notifications)
+
         msg = MIMEMultipart()
         if SENDER_EMAIL is None or RECIPIENT_EMAIL is None:
             raise ValueError("SENDER_EMAIL and RECIPIENT_EMAIL must be configured")
@@ -256,18 +214,16 @@ def send_notification_email(server, vehicle, notifications):
         msg['To'] = RECIPIENT_EMAIL
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
-        
+
         server.send_message(msg)
-        logger.info(f"Notification email sent to {RECIPIENT_EMAIL} for vehicle {getattr(vehicle, 'license_plate', 'N/A')} (ID: {getattr(vehicle, 'id', 'N/A')})")
-        
-        # Check if second recipient should receive notification (within 4 days)
+        logger.info(f"Notification email sent to {RECIPIENT_EMAIL} for collaborateur {getattr(collaborateur, 'nom', 'N/A')} {getattr(collaborateur, 'prenom', 'N/A')} (ID: {getattr(collaborateur, 'id', 'N/A')})")
+
         if RECIPIENT_EMAIL_2:
             urgent_notifications = [notif for notif in notifications if notif['days_until'] <= 4]
-            
+
             if urgent_notifications:
-                # Generate content for urgent notifications only
-                urgent_subject, urgent_body = generate_email_content(vehicle, urgent_notifications)
-                
+                urgent_subject, urgent_body = generate_email_content(collaborateur, urgent_notifications)
+
                 msg2 = MIMEMultipart()
                 if SENDER_EMAIL is None:
                     raise ValueError("SENDER_EMAIL must be configured")
@@ -275,13 +231,13 @@ def send_notification_email(server, vehicle, notifications):
                 msg2['To'] = RECIPIENT_EMAIL_2
                 msg2['Subject'] = f"URGENT - {urgent_subject}"
                 msg2.attach(MIMEText(urgent_body, 'plain'))
-                
+
                 server.send_message(msg2)
-                logger.info(f"Urgent notification email sent to {RECIPIENT_EMAIL_2} for vehicle {getattr(vehicle, 'license_plate', 'N/A')} (ID: {getattr(vehicle, 'id', 'N/A')}) ({len(urgent_notifications)} urgent inspection(s))")
-        
+                logger.info(f"Urgent notification email sent to {RECIPIENT_EMAIL_2} for collaborateur {getattr(collaborateur, 'nom', 'N/A')} {getattr(collaborateur, 'prenom', 'N/A')} (ID: {getattr(collaborateur, 'id', 'N/A')}) ({len(urgent_notifications)} urgent inspection(s))")
+
     except Exception as e:
-        logger.error(f"Failed to send notification email for vehicle {getattr(vehicle, 'license_plate', 'N/A')} (ID: {getattr(vehicle, 'id', 'N/A')}): {e}")
-        # Not re-raising here to allow other vehicles to be processed
+        logger.error(f"Failed to send notification email for collaborateur {getattr(collaborateur, 'nom', 'N/A')} {getattr(collaborateur, 'prenom', 'N/A')} (ID: {getattr(collaborateur, 'id', 'N/A')}): {e}")
+        # Not re-raising here to allow other collaborateurs to be processed
         # raise # Uncomment if one email failure should stop all
 
 def main():

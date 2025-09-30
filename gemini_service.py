@@ -9,189 +9,152 @@ load_dotenv()
 # Configure Gemini API
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
 
-def get_vehicle_identifier(vehicle_data):
-    """Get the vehicle identifier (license plate or serial number)"""
-    if 'license_plate' in vehicle_data:
-        return vehicle_data['license_plate']
-    elif 'serial_number' in vehicle_data:
-        return vehicle_data['serial_number']
-    return 'Véhicule Inconnu'
+def get_collaborateur_identifier(collaborateur_data):
+    """Get the collaborateur identifier (nom + prenom)"""
+    if isinstance(collaborateur_data, dict):
+        # From notification dict
+        if 'license_plate' in collaborateur_data:
+            return collaborateur_data['license_plate']
+        nom = collaborateur_data.get('nom', '')
+        prenom = collaborateur_data.get('prenom', '')
+        return f"{nom} {prenom}".strip() or "Collaborateur Inconnu"
+    # SQLAlchemy object
+    nom = getattr(collaborateur_data, 'nom', '')
+    prenom = getattr(collaborateur_data, 'prenom', '')
+    return f"{nom} {prenom}".strip() or "Collaborateur Inconnu"
 
-def get_vehicle_details(vdata):
-    """Get vehicle details based on available fields"""
+def get_collaborateur_details(cdata):
+    """Get collaborateur details based on available fields"""
     details = []
-    
-    # Basic info
-    details.append(f"- Marque/Modèle: {vdata.get('brand', 'N/A')} {vdata.get('commercial_type', 'N/A')}")
-    details.append(f"- Type: {vdata.get('vehicle_type', 'N/A')}")
-    details.append(f"- Groupe: {vdata.get('group_number', 'N/A')}")
-    
-    # Technical details - database 4
-    if 'engine_type' in vdata:
-        details.extend([
-            f"- Type de moteur: {vdata.get('engine_type', 'N/A')}",
-            f"- Puissance: {vdata.get('power', 'N/A')}",
-            f"- Poids: {vdata.get('weight', 'N/A')}",
-            f"- Heures: {vdata.get('hours', 'N/A')}"
-        ])
-    
-    # Technical details - database 2 & 3
-    if 'payload' in vdata:
-        details.extend([
-            f"- Charge utile: {vdata.get('payload', 'N/A')}",
-            f"- PTAC: {vdata.get('gvw', 'N/A')}",
-            f"- PTRA: {vdata.get('mam', 'N/A')}"
-        ])
-    
-    # Common fields
-    details.extend([
-        f"- Carrosserie: {vdata.get('body_type', 'N/A')}",
-        f"- Travaille avec: {vdata.get('work_with', 'Non spécifié')}",
-        f"- Kilométrage: {vdata.get('kilometers', 'N/A')}",
-        f"- Commentaires: {vdata.get('comments', 'Aucun commentaire')}"
-    ])
-    
+    # Support dict or SQLAlchemy object
+    get = lambda k, default=None: cdata.get(k, default) if isinstance(cdata, dict) else getattr(cdata, k, default)
+    details.append(f"- Nom: {get('nom', 'N/A')}")
+    details.append(f"- Prénom: {get('prenom', 'N/A')}")
+    # Add certifications/validations if present
+    for field, label in [
+        ('fimo', 'FIMO'),
+        ('caces', 'CACES'),
+        ('aipr', 'AIPR'),
+        ('hg0b0', 'H0B0'),
+        ('visite_med', 'Visite médicale'),
+        ('brevet_secour', 'Brevet secouriste'),
+        ('date_renouvellement', 'Date de renouvellement'),
+        ('date_validite', 'Date de validité')
+    ]:
+        val = get(field)
+        if val:
+            details.append(f"- {label}: {val}")
+    commentaire = get('commentaire', None)
+    details.append(f"- Commentaires: {commentaire if commentaire else 'Aucun commentaire'}")
     return details
 
-def generate_email_content(vehicle, notifications):
-    """Generate email content using Gemini AI"""
+def generate_email_content(collaborateur, notifications):
+    """Generate email content using Gemini AI for collaborateur"""
     try:
-        # Create a detailed prompt for Gemini in French
-        # Check if any inspection is urgent (0-4 days)
-        urgent_inspections = [n for n in notifications if isinstance(notifications, list) and n.get('days_until', 999) <= 4]
-        is_urgent = len(urgent_inspections) > 0
-        
+        # Check if any notification is urgent (0-4 days)
+        urgent_notifications = [n for n in notifications if isinstance(notifications, list) and n.get('days_until', 999) <= 4]
+        is_urgent = len(urgent_notifications) > 0
+
+        # Compose prompt (French, collaborateur-centric)
         prompt = f"""
-        Tu es une intelligence artificielle qui rédige des mails en français. Tu es spécialisée dans la gestion de la maintenance des véhicules pour l'entreprise Bourgeois Travaux Publics, une PME familiale fondée en 1929 et située à Saint-Denis.
+        Tu es une intelligence artificielle qui rédige des mails en français. Tu es spécialisée dans la gestion des certifications et renouvellements des collaborateurs pour l'entreprise Bourgeois Travaux Publics, une PME familiale fondée en 1929 et située à Saint-Denis.
         Cette entreprise, dirigée par les fils Frédéric et Nicolas GERNEZ, compte 57 salariés et intervient dans des domaines tels que le terrassement, l'assainissement, la voirie, le pavage, le revêtement et le dallage.
 
-        Ta mission est d'envoyer des e-mails de rappel au mécanicien responsable de l'entretien des véhicules de l'entreprise, afin de l'informer des dates imminentes de contrôle technique pour chaque véhicule.
+        Ta mission est d'envoyer des e-mails de rappel au responsable RH ou au collaborateur, afin de l'informer des dates imminentes de renouvellement ou de validité de ses certifications ou visites médicales.
 
-        Informations détaillées du Véhicule :
-        {chr(10).join(get_vehicle_details(notifications[0]['vehicle_data'])) if isinstance(notifications, list) and notifications else 'Aucune information disponible'}
-        
+        Informations détaillées du Collaborateur :
+        {chr(10).join(get_collaborateur_details(notifications[0]['vehicle_data'] if isinstance(notifications, list) and notifications and 'vehicle_data' in notifications[0] else collaborateur)) if notifications else 'Aucune information disponible'}
+
         Notifications et Dates Limites :
-        {chr(10).join([f"- {n['type']} pour {get_vehicle_identifier(n['vehicle_data'])} prévu pour le {n['due_date']} : {n['message']}" for n in notifications]) if isinstance(notifications, list) else str(notifications)}
+        {chr(10).join([f"- {n['type']} pour {get_collaborateur_identifier(n.get('vehicle_data', collaborateur))} prévu pour le {n['due_date']} : {n['message']}" for n in notifications]) if isinstance(notifications, list) else str(notifications)}
 
         Structure de l'email à générer :
 
-        Commence par saluer le mécanicien par son prénom (José)
-        Dans le mail tu vas donnée le maximum d'information possible sur le véhicule qui est sujet au controle technique. 
-        Le but des détails donnés sur le véhicules sera de bien informer le mécanicien responsable de l'entretien.
-        Tu feras des encadonnements pour bien mettre en valeur les informations concernant le véhicule.
-        Tu mettras en en encadrement les informations suivantes : type du véhicule, marque, modèle. Tu peux rajouter d'autres informations si c'est nécessaire.
-        Tu prendras en compte la partie commentaire qui est trés importainte pour te donner un regard critique sur le mail que tu envoies, la paartie commentaire peut aussi te donner un contexte sur le véhicule en question.
-        
-        **IMPORTANT: Si la date est dans un intervalle de 0 à 4 jours tu change la structure de l'email et tu demandes d'immobiliser le véhicule tout de suite. Dans ce cas, tu dois:**
+        Commence par saluer le collaborateur par son prénom.
+        Donne le maximum d'information possible sur le collaborateur et ses certifications/validations à renouveler.
+        Mets en valeur les informations importantes (nom, prénom, type de certification, date limite).
+        Prends en compte la partie commentaire qui peut donner un contexte sur la situation du collaborateur.
+
+        **IMPORTANT: Si la date est dans un intervalle de 0 à 4 jours tu changes la structure de l'email et demandes de ne pas laisser le collaborateur exercer sans renouvellement. Dans ce cas, tu dois:**
         - Mettre un ton URGENT dans tout l'email
-        - Demander explicitement l'immobilisation immédiate du véhicule 
-        - Expliquer que le véhicule ne doit plus circuler jusqu'au contrôle technique
-        - Préciser les risques légaux et de sécurité
-        - Demander une confirmation rapide de l'immobilisation
-        
-        En suite tu termines par une formule de politesse appropriée. et tu signes "Agent artificielle chargé des véhiles Bourgeois Travaux Publics".
-        
-        Status actuel: {'URGENT - Immobilisation requise' if is_urgent else 'Rappel standard'}
+        - Demander explicitement de suspendre l'activité du collaborateur jusqu'au renouvellement
+        - Expliquer les risques légaux et de sécurité
+        - Demander une confirmation rapide de la suspension
+
+        Termine par une formule de politesse appropriée et signe "Agent artificielle chargé des collaborateurs Bourgeois Travaux Publics".
+
+        Status actuel: {'URGENT - Suspension requise' if is_urgent else 'Rappel standard'}
         """
-        #1. Objet de l'email :
-        # - Inclure l'identifiant du véhicule et la date du prochain contrôle technique
 
-        # 2. Corps de l'email :
-
-        # # - Saluer le mécanicien par son prénom (José)
-        # # - Rappeler l'identifiant du véhicule concerné
-        # # - Inclure toutes les informations détaillées du véhicule
-        # # - Préciser la date limite du prochain contrôle technique
-        # # - Souligner l'importance de réaliser le contrôle avant cette date
-        # # - Si des commentaires sur l'état du véhicule sont présents, inclure une section dédiée qui met en évidence ces points d'attention pour le contrôle technique
-        # # - Suggérer de planifier un rendez-vous au centre de contrôle technique agréé
-        # # - Proposer une assistance pour toute information supplémentaire
-        # # - Conclure par une formule de politesse appropriée
-
-        # Formatez la réponse comme suit : OBJET|||CORPS
-
-
-
-        # Call Gemini API (placeholder)
-        # In a real implementation, you would make an API call here
-        # For now, we'll use a fallback format
-        
-        # Fallback content
-        vehicle_data = notifications[0]['vehicle_data'] if isinstance(notifications, list) and notifications else {}
-        identifier = get_vehicle_identifier(vehicle_data)
-        
-        # Check if urgent for subject line
-        subject_prefix = "🚨 URGENT - IMMOBILISATION REQUISE" if is_urgent else "Rappel d'Inspection"
+        # Fallback content (local formatting)
+        cdata = notifications[0]['vehicle_data'] if isinstance(notifications, list) and notifications and 'vehicle_data' in notifications[0] else collaborateur
+        identifier = get_collaborateur_identifier(cdata)
+        subject_prefix = "🚨 URGENT - SUSPENSION REQUISE" if is_urgent else "Rappel de Certification"
         subject = f"{subject_prefix} - {identifier}"
-        
-        vehicle_info = []
+
+        collaborateur_info = []
         notifications_text = []
-        
+
         if isinstance(notifications, list) and notifications:
-            # Get vehicle info only once (from the first notification)
-            vdata = notifications[0]['vehicle_data']
-            vehicle_info.append(f"""
+            collaborateur_info.append(f"""
 ╔══════════════════════════════════════════════╗
-║         INFORMATIONS DU VÉHICULE             ║
+║      INFORMATIONS DU COLLABORATEUR           ║
 ╠══════════════════════════════════════════════╣
-║ Identifiant: {get_vehicle_identifier(vdata):<29} ║
-║ Type: {vdata.get('vehicle_type', 'N/A'):<36} ║
-║ Marque: {vdata.get('brand', 'N/A'):<34} ║
-║ Modèle: {vdata.get('commercial_type', 'N/A'):<34} ║
+║ Identifiant: {get_collaborateur_identifier(cdata):<29} ║
+║ Nom: {getattr(cdata, 'nom', cdata.get('nom', 'N/A')):<34} ║
+║ Prénom: {getattr(cdata, 'prenom', cdata.get('prenom', 'N/A')):<34} ║
 ╚══════════════════════════════════════════════╝
-{chr(10).join(get_vehicle_details(vdata))}""")
-            
-            # Process all notifications
+{chr(10).join(get_collaborateur_details(cdata))}""")
             for n in notifications:
                 urgency_flag = "🚨 URGENT" if n.get('days_until', 999) <= 4 else ""
                 notifications_text.append(f"- {urgency_flag} {n['type']} prévu pour le {n['due_date']} : {n['message']}")
         else:
-            vehicle_info = ["Informations du véhicule non disponibles"]
+            collaborateur_info = ["Informations du collaborateur non disponibles"]
             notifications_text = [str(notifications)]
 
         # Generate appropriate body based on urgency
         if is_urgent:
             body = f"""🚨🚨🚨 ALERTE URGENTE 🚨🚨🚨
 
-Bonjour José,
+Bonjour {getattr(cdata, 'prenom', cdata.get('prenom', ''))},
 
-⚠️ IMMOBILISATION IMMÉDIATE REQUISE ⚠️
+⚠️ SUSPENSION IMMÉDIATE REQUISE ⚠️
 
-{chr(10).join(vehicle_info)}
+{chr(10).join(collaborateur_info)}
 
-🔴 NOTIFICATIONS D'INSPECTION URGENTES :
+🔴 NOTIFICATIONS DE CERTIFICATION URGENTES :
 {chr(10).join(notifications_text)}
 
 🚫 ACTION REQUISE IMMÉDIATEMENT :
-- IMMOBILISER LE VÉHICULE TOUT DE SUITE
-- LE VÉHICULE NE DOIT PLUS CIRCULER
-- PROGRAMMER LE CONTRÔLE TECHNIQUE EN URGENCE
-- CONFIRMER L'IMMOBILISATION PAR RETOUR DE MAIL
+- SUSPENDRE L'ACTIVITÉ DU COLLABORATEUR TOUT DE SUITE
+- NE PAS LAISSER EXERCER SANS RENOUVELLEMENT
+- PROGRAMMER LE RENOUVELLEMENT EN URGENCE
+- CONFIRMER LA SUSPENSION PAR RETOUR DE MAIL
 
 ⚖️ RISQUES LÉGAUX ET DE SÉCURITÉ :
-- Circulation avec un contrôle technique expiré = INFRACTION
+- Exercice sans certification valide = INFRACTION
 - Risques d'accident et de responsabilité
 - Sanctions possibles de l'inspection du travail
 
-Merci de confirmer la réception et l'immobilisation par retour de mail.
+Merci de confirmer la réception et la suspension par retour de mail.
 
-URGENT - Agent artificielle chargé des véhicules Bourgeois Travaux Publics"""
+URGENT - Agent artificielle chargé des collaborateurs Bourgeois Travaux Publics"""
         else:
-            body = f"""Bonjour José,
+            body = f"""Bonjour {getattr(cdata, 'prenom', cdata.get('prenom', ''))},
 
-{chr(10).join(vehicle_info)}
+{chr(10).join(collaborateur_info)}
 
-Notifications d'inspection :
+Notifications de certification :
 {chr(10).join(notifications_text)}
 
-Merci de planifier les contrôles techniques nécessaires.
+Merci de planifier les renouvellements nécessaires.
 
 Cordialement,
 
-Agent artificielle chargé des véhicules Bourgeois Travaux Publics"""
-        
+Agent artificielle chargé des collaborateurs Bourgeois Travaux Publics"""
+
         return subject, body
-        
+
     except Exception as e:
         logging.error(f"Error generating email content: {str(e)}")
         raise
