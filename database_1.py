@@ -7,7 +7,9 @@ from models_1 import Collaborateur, Base
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from config_1 import SQLALCHEMY_DATABASE_URL
+from dotenv import load_dotenv
+load_dotenv()
+SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL_1", "sqlite:///database_management_1.db")
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

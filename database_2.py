@@ -8,8 +8,10 @@ from models_2 import Base
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+from dotenv import load_dotenv
+load_dotenv()
 # Database configuration
-DATABASE_URL = "sqlite:///database_management_2.db"
+DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL_2", "sqlite:///database_management_2.db")
 
 def get_db():
     """Generator function to get database session"""
