@@ -18,11 +18,13 @@ def get_db():
     engine = create_engine(DATABASE_URL)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     
+    db = None
     try:
         db = SessionLocal()
         yield db
     finally:
-        db.close()
+        if db is not None:
+            db.close()
 
 def init_db():
     """Initialize the database by creating all tables"""
