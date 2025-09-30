@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: none !important;
+        background-color: white !important;
+        background-image: none !important;
+    }
+    .container {
+        background-color: white !important;
+    }
+    .card {
+        background-color: white !important;
+    }
+    .ct-soeco, .ct-date {
+        background-color: #e3f2fd !important;
+        border-color: #64b5f6;
+    }
+    .ct-soeco:focus, .ct-date:focus {
+        border-color: #2196f3;
+        box-shadow: 0 0 0 0.2rem rgba(33, 150, 243, 0.25);
+    }
+    .chrono-field {
+        background-color: #fff3e0 !important;
+        border-color: #ffb74d;
+    }
+    .chrono-field:focus {
+        border-color: #ff9800;
+        box-shadow: 0 0 0 0.2rem rgba(255, 152, 0, 0.25);
+    }
+    .limiteur-field {
+        background-color: #f3e5f5 !important;
+        border-color: #ba68c8;
+    }
+    .limiteur-field:focus {
+        border-color: #9c27b0;
+        box-shadow: 0 0 0 0.2rem rgba(156, 39, 176, 0.25);
+    }
+</style>
+{% endblock %}
+
+{% block title %}Ajouter un Véhicule - Base de données 2{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-body">
+            <h1>Ajouter un Véhicule</h1>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" class="needs-validation" novalidate>
+                <div class="row">
+                    <!-- Required Fields -->
+                    <div class="col-md-4 mb-3">
+                        <label for="vehicle_type" class="form-label">Type de Véhicule *</label>
+                        <input type="text" class="form-control" id="vehicle_type" name="vehicle_type" required>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="brand" class="form-label">Marque *</label>
+                        <input type="text" class="form-control" id="brand" name="brand" required>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="commercial_type" class="form-label">Type Commercial *</label>
+                        <input type="text" class="form-control" id="commercial_type" name="commercial_type" required>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="group_number" class="form-label">Numéro de Groupe</label>
+                        <input type="number" class="form-control" id="group_number" name="group_number">
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="license_plate" class="form-label">Plaque d'Immatriculation *</label>
+                        <input type="text" class="form-control" id="license_plate" name="license_plate" required>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="work_with" class="form-label">Travaille avec</label>
+                        <input type="text" class="form-control" id="work_with" name="work_with">
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="kilometer_additional_inspection" class="form-label">Kilométrage Inspection Additionnelle</label>
+                        <input type="number" class="form-control" id="kilometer_additional_inspection" name="kilometer_additional_inspection">
+                    </div>
+
+                    <!-- Date Fields -->
+                    <div class="col-md-4 mb-3">
+                        <label for="ct_soeco_date" class="form-label">Date CT SOECO</label>
+                        <input type="date" class="form-control ct-soeco" id="ct_soeco_date" name="ct_soeco_date">
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="euromaster_chrono" class="form-label">Euromaster Chrono</label>
+                        <input type="date" class="form-control chrono-field" id="euromaster_chrono" name="euromaster_chrono">
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="euromaster_limiteur" class="form-label">Euromaster Limiteur</label>
+                        <input type="date" class="form-control limiteur-field" id="euromaster_limiteur" name="euromaster_limiteur">
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="ned92_chrono" class="form-label">NED 92 Chrono</label>
+                        <input type="date" class="form-control chrono-field" id="ned92_chrono" name="ned92_chrono">
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="ned92_limiteur" class="form-label">NED 92 Limiteur</label>
+                        <input type="date" class="form-control limiteur-field" id="ned92_limiteur" name="ned92_limiteur">
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="date_technical_inspection" class="form-label">Date CT</label>
+                        <input type="date" class="form-control ct-date" id="date_technical_inspection" name="date_technical_inspection">
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="date_chrono" class="form-label">Date Chrono</label>
+                        <input type="date" class="form-control chrono-field" id="date_chrono" name="date_chrono">
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="date_limiteur" class="form-label">Date Limiteur</label>
+                        <input type="date" class="form-control limiteur-field" id="date_limiteur" name="date_limiteur">
+                    </div>
+
+                    <div class="col-md-12 mb-3">
+                        <label for="comments" class="form-label">Commentaires</label>
+                        <textarea class="form-control" id="comments" name="comments" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col">
+                        <button type="submit" class="btn btn-primary">Ajouter le Véhicule</button>
+                        <a href="{{ url_for('index_2') }}" class="btn btn-secondary">Annuler</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Form validation
+(function () {
+    'use strict'
+    var forms = document.querySelectorAll('.needs-validation')
+    Array.prototype.slice.call(forms).forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })
+})()
+</script>
+{% endblock %}

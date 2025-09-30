@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des Véhicules - Base de données 2{% endblock %}
+
+{% block content %}
+<div class="container-xl mt-4">
+    <div class="card">
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col">
+                    <h1>Liste des Véhicules</h1>
+                </div>
+                <div class="col text-end">
+                    <a href="{{ url_for('add_vehicle_2') }}" class="btn btn-primary">Ajouter un véhicule</a>
+                </div>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="GET" action="{{ url_for('index_2') }}" class="mb-4">
+                <div class="input-group">
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="Rechercher par type, marque, plaque, travaille avec, kilométrage, etc..." 
+                           value="{{ request.args.get('search', '') }}">
+                    <button type="submit" class="btn btn-primary">Rechercher</button>
+                </div>
+            </form>
+
+            <style>
+                .sortable {
+                    cursor: pointer;
+                    position: relative;
+                    padding-right: 20px !important;
+                }
+                .sortable:after {
+                    content: '↕';
+                    position: absolute;
+                    right: 5px;
+                    color: #999;
+                }
+                .sortable.asc:after {
+                    content: '↑';
+                    color: #000;
+                }
+                .sortable.desc:after {
+                    content: '↓';
+                    color: #000;
+                }
+            </style>
+
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Actions</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'vehicle_type' and sort_order == 'asc' else 'desc' if sort_by == 'vehicle_type' else '' }}"
+                                onclick="sortTable('vehicle_type')">Type de Véhicule</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'brand' and sort_order == 'asc' else 'desc' if sort_by == 'brand' else '' }}"
+                                onclick="sortTable('brand')">Marque</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'commercial_type' and sort_order == 'asc' else 'desc' if sort_by == 'commercial_type' else '' }}"
+                                onclick="sortTable('commercial_type')">Type Commercial</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'group_number' and sort_order == 'asc' else 'desc' if sort_by == 'group_number' else '' }}"
+                                onclick="sortTable('group_number')">Numéro de Groupe</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'license_plate' and sort_order == 'asc' else 'desc' if sort_by == 'license_plate' else '' }}"
+                                onclick="sortTable('license_plate')">Plaque d'Immatriculation</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'work_with' and sort_order == 'asc' else 'desc' if sort_by == 'work_with' else '' }}"
+                                onclick="sortTable('work_with')">Travaille avec</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'kilometer_additional_inspection' and sort_order == 'asc' else 'desc' if sort_by == 'kilometer_additional_inspection' else '' }}"
+                                onclick="sortTable('kilometer_additional_inspection')">Kilométrage Inspection Additionnelle</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'ct_soeco_date' and sort_order == 'asc' else 'desc' if sort_by == 'ct_soeco_date' else '' }}"
+                                onclick="sortTable('ct_soeco_date')">Date CT SOECO</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'euromaster_chrono' and sort_order == 'asc' else 'desc' if sort_by == 'euromaster_chrono' else '' }}"
+                                onclick="sortTable('euromaster_chrono')">Euromaster Chrono</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'euromaster_limiteur' and sort_order == 'asc' else 'desc' if sort_by == 'euromaster_limiteur' else '' }}"
+                                onclick="sortTable('euromaster_limiteur')">Euromaster Limiteur</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'ned92_chrono' and sort_order == 'asc' else 'desc' if sort_by == 'ned92_chrono' else '' }}"
+                                onclick="sortTable('ned92_chrono')">NED 92 Chrono</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'ned92_limiteur' and sort_order == 'asc' else 'desc' if sort_by == 'ned92_limiteur' else '' }}"
+                                onclick="sortTable('ned92_limiteur')">NED 92 Limiteur</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'date_technical_inspection' and sort_order == 'asc' else 'desc' if sort_by == 'date_technical_inspection' else '' }}"
+                                onclick="sortTable('date_technical_inspection')">Date CT</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'date_chrono' and sort_order == 'asc' else 'desc' if sort_by == 'date_chrono' else '' }}"
+                                onclick="sortTable('date_chrono')">Date Chrono</th>
+                            <th class="sortable {{ 'asc' if sort_by == 'date_limiteur' and sort_order == 'asc' else 'desc' if sort_by == 'date_limiteur' else '' }}"
+                                onclick="sortTable('date_limiteur')">Date Limiteur</th>
+                            <th>Commentaires</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vehicle in vehicles %}
+                        <tr>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{{ url_for('edit_vehicle_2', id=vehicle.id) }}" class="btn btn-sm btn-warning rounded-circle d-flex align-items-center justify-content-center" style="width:28px;height:28px;padding:0;" title="Modifier">
+    <i class="fas fa-pen"></i>
+</a>
+<button onclick="confirmDelete({{ vehicle.id }}, '{{ vehicle.license_plate }}')" 
+        class="btn btn-sm btn-danger rounded-circle d-flex align-items-center justify-content-center" style="width:28px;height:28px;padding:0;" title="Supprimer">
+    <i class="fas fa-trash"></i>
+</button>
+                                </div>
+                            </td>
+                            <td>{{ vehicle.vehicle_type }}</td>
+                            <td>{{ vehicle.brand }}</td>
+                            <td>{{ vehicle.commercial_type }}</td>
+                            <td>{{ vehicle.group_number }}</td>
+                            <td>{{ vehicle.license_plate }}</td>
+                            <td>{{ vehicle.work_with }}</td>
+                            <td>{{ vehicle.kilometer_additional_inspection }}</td>
+                            <td>{{ vehicle.ct_soeco_date.strftime('%d/%m/%Y') if vehicle.ct_soeco_date }}</td>
+                            <td>{{ vehicle.euromaster_chrono.strftime('%d/%m/%Y') if vehicle.euromaster_chrono }}</td>
+                            <td>{{ vehicle.euromaster_limiteur.strftime('%d/%m/%Y') if vehicle.euromaster_limiteur }}</td>
+                            <td>{{ vehicle.ned92_chrono.strftime('%d/%m/%Y') if vehicle.ned92_chrono }}</td>
+                            <td>{{ vehicle.ned92_limiteur.strftime('%d/%m/%Y') if vehicle.ned92_limiteur }}</td>
+                            <td>{{ vehicle.date_technical_inspection.strftime('%d/%m/%Y') if vehicle.date_technical_inspection }}</td>
+                            <td>{{ vehicle.date_chrono.strftime('%d/%m/%Y') if vehicle.date_chrono }}</td>
+                            <td>{{ vehicle.date_limiteur.strftime('%d/%m/%Y') if vehicle.date_limiteur }}</td>
+                            <td>{{ vehicle.comments }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(id, licensePlate) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer le véhicule avec la plaque ' + licensePlate + ' ?')) {
+        window.location.href = "{{ url_for('delete_vehicle_route_2', id=0) }}".replace('0', id);
+    }
+}
+
+function sortTable(column) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentSort = urlParams.get('sort_by');
+    const currentOrder = urlParams.get('sort_order');
+    
+    let newOrder = 'asc';
+    if (currentSort === column && currentOrder === 'asc') {
+        newOrder = 'desc';
+    }
+    
+    urlParams.set('sort_by', column);
+    urlParams.set('sort_order', newOrder);
+    
+    // Preserve search term if it exists
+    const searchTerm = urlParams.get('search');
+    if (searchTerm) {
+        urlParams.set('search', searchTerm);
+    }
+    
+    window.location.href = `${window.location.pathname}?${urlParams.toString()}`;
+}
+</script>
+{% endblock %}
