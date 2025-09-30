@@ -25,7 +25,13 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-from config_1 import SMTP_SERVER, SMTP_PORT, SENDER_EMAIL, SENDER_PASSWORD, RECIPIENT_EMAIL, RECIPIENT_EMAIL_2
+# Load env already performed above via load_dotenv()
+SMTP_SERVER = os.getenv("SMTP_SERVER") or os.getenv("SMTP_SERVER_1")
+SMTP_PORT = os.getenv("SMTP_PORT") or os.getenv("SMTP_PORT_1")
+SENDER_EMAIL = os.getenv("SENDER_EMAIL") or os.getenv("SENDER_EMAIL_1")
+SENDER_PASSWORD = os.getenv("SENDER_PASSWORD") or os.getenv("SENDER_PASSWORD_1")
+RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL") or os.getenv("RECIPIENT_EMAIL_1")
+RECIPIENT_EMAIL_2 = os.getenv("RECIPIENT_EMAIL_2") or os.getenv("RECIPIENT_EMAIL_2_1")
 
 # Validate email configuration
 if not all([SMTP_SERVER, SMTP_PORT, SENDER_EMAIL, SENDER_PASSWORD, RECIPIENT_EMAIL]):
@@ -39,7 +45,7 @@ try:
 except (TypeError, ValueError):
     raise ValueError("SMTP_PORT must be a valid integer")
 
-from config_1 import SQLALCHEMY_DATABASE_URL
+SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL_1", "sqlite:///database_management_1.db")
 try:
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
