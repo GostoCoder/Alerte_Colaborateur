@@ -82,22 +82,27 @@ def validate_date(date_obj):
     max_future_date = get_current_date() + timedelta(days=365 * 2)  # 2 years max
     return date_obj <= max_future_date
 
-def parse_date(date_str):
-    """Try to parse a date string in several formats."""
-    from datetime import datetime
-    if not date_str or not isinstance(date_str, str):
+def parse_date(value):
+    """Parse a value as a date, supporting date, datetime, and string formats."""
+    if value is None:
         return None
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
-        try:
-            return datetime.strptime(date_str.strip(), fmt).date()
-        except Exception:
-            continue
+    if isinstance(value, date):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, str):
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+            try:
+                return datetime.strptime(value.strip(), fmt).date()
+            except Exception:
+                continue
     return None
 
-def get_collaborateur_notifications(collaborateur, today, two_weeks_later):
-    """Extract notifications for a collaborateur (expiry fields)."""
-    notifications = []
-    expiry_fields = {
+def get_date_fields_from_model(model):
+    """Return list of (attr_name, label) for all Date columns in the model."""
+    from sqlalchemy import Date
+    fields = []
+    label_map = {
         'fimo': 'FIMO',
         'caces': 'CACES',
         'aipr': 'AIPR',
@@ -105,13 +110,24 @@ def get_collaborateur_notifications(collaborateur, today, two_weeks_later):
         'visite_med': 'Visite médicale',
         'brevet_secour': 'Brevet secouriste'
     }
-    for field, label in expiry_fields.items():
-        value = getattr(collaborateur, field, None)
-        expiry_date = parse_date(value)
+    for col in model.__table__.columns:
+        if isinstance(col.type, Date):
+            name = col.name
+            label = label_map.get(name, name.replace('_', ' ').title())
+            fields.append((name, label))
+    return fields
+
+def get_collaborateur_notifications(collaborateur, today, two_weeks_later):
+    """Extract notifications for a collaborateur (all date fields)."""
+    notifications = []
+    for field, label in get_date_fields_from_model(Collaborateur):
+        raw = getattr(collaborateur, field, None)
+        expiry_date = parse_date(raw)
         if expiry_date and validate_date(expiry_date) and today <= expiry_date <= two_weeks_later:
             days_until = (expiry_date - today).days
             notifications.append({
                 'type': label,
+                'field': field,
                 'due_date': expiry_date.strftime('%Y-%m-%d'),
                 'days_until': days_until
             })
