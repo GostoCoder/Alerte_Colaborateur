@@ -13,6 +13,8 @@ def get_db():
     finally:
         db.close()
 
+from datetime import date
+
 def create_collaborateur(db,
                          nom: str,
                          prenom: str,
@@ -27,12 +29,12 @@ def create_collaborateur(db,
     collab = Collaborateur(
         nom=nom,
         prenom=prenom,
-        fimo=fimo,
-        caces=caces,
-        aipr=aipr,
-        hg0b0=hg0b0,
-        visite_med=visite_med,
-        brevet_secour=brevet_secour,
+        fimo=date.fromisoformat(fimo) if fimo else None,
+        caces=date.fromisoformat(caces) if caces else None,
+        aipr=date.fromisoformat(aipr) if aipr else None,
+        hg0b0=date.fromisoformat(hg0b0) if hg0b0 else None,
+        visite_med=date.fromisoformat(visite_med) if visite_med else None,
+        brevet_secour=date.fromisoformat(brevet_secour) if brevet_secour else None,
         commentaire=commentaire
     )
     try:
@@ -76,6 +78,7 @@ def update_collaborateur(db,
                          visite_med: Optional[str] = None,
                          brevet_secour: Optional[str] = None,
                          commentaire: Optional[str] = None) -> Optional[Collaborateur]:
+    from datetime import date
     """Update a collaborateur's information"""
     collab = get_collaborateur(db, collaborateur_id)
     if not collab:
@@ -85,17 +88,17 @@ def update_collaborateur(db,
     if prenom is not None:
         setattr(collab, "prenom", prenom)
     if fimo is not None:
-        setattr(collab, "fimo", fimo)
+        setattr(collab, "fimo", date.fromisoformat(fimo) if fimo else None)
     if caces is not None:
-        setattr(collab, "caces", caces)
+        setattr(collab, "caces", date.fromisoformat(caces) if caces else None)
     if aipr is not None:
-        setattr(collab, "aipr", aipr)
+        setattr(collab, "aipr", date.fromisoformat(aipr) if aipr else None)
     if hg0b0 is not None:
-        setattr(collab, "hg0b0", hg0b0)
+        setattr(collab, "hg0b0", date.fromisoformat(hg0b0) if hg0b0 else None)
     if visite_med is not None:
-        setattr(collab, "visite_med", visite_med)
+        setattr(collab, "visite_med", date.fromisoformat(visite_med) if visite_med else None)
     if brevet_secour is not None:
-        setattr(collab, "brevet_secour", brevet_secour)
+        setattr(collab, "brevet_secour", date.fromisoformat(brevet_secour) if brevet_secour else None)
     if commentaire is not None:
         setattr(collab, "commentaire", commentaire)
     try:
