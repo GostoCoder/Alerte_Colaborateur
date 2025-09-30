@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
-from crud_2 import get_vehicles_2, get_vehicle_2, create_vehicle_2, update_vehicle_2, delete_vehicle_2
+from crud_2 import get_collaborateurs_2, get_collaborateur_2, create_collaborateur_2, update_collaborateur_2, delete_collaborateur_2
 from crud_1 import get_collaborateurs as get_collaborateurs_1, get_collaborateur as get_collaborateur_1, create_collaborateur as create_collaborateur_1, update_collaborateur as update_collaborateur_1, delete_collaborateur as delete_collaborateur_1
 from database_2 import get_db as get_db_2
 from database_1 import get_db as get_db_1
@@ -38,21 +38,18 @@ def index_2():
     search_term = request.args.get('search', '')
     sort_by = request.args.get('sort_by', 'brand')
     sort_order = request.args.get('sort_order', 'asc')
-    allowed_sort_fields = ['vehicle_type', 'brand', 'commercial_type', 'group_number',
-                          'license_plate', 'limit_periodic_inspection', 'kilometer_periodic_inspection',
-                          'limit_additional_inspection', 'kilometer_additional_inspection',
-                          'date_periodic_inspection', 'date_additional_inspection']
+    allowed_sort_fields = ['nom', 'prenom', 'date_renouvellement', 'date_validite']
     if sort_by not in allowed_sort_fields:
-        sort_by = 'brand'
-    vehicles = get_vehicles_2(db, search=search_term, sort_by=sort_by, direction=sort_order)
+        sort_by = 'nom'
+    collaborateurs = get_collaborateurs_2(db, search=search_term, sort_by=sort_by, direction=sort_order)
     return render_template('index_2.html',
-                         vehicles=vehicles,
+                         collaborateurs=collaborateurs,
                          search_term=search_term,
                          sort_by=sort_by,
                          sort_order=sort_order)
 
-@app.route('/add_vehicle_1', methods=['GET', 'POST'])
-def add_vehicle_1():
+@app.route('/add_collaborateur_1', methods=['GET', 'POST'])
+def add_collaborateur_1():
     if request.method == 'POST':
         try:
             nom = request.form['nom']
@@ -81,62 +78,39 @@ def add_vehicle_1():
             return redirect(url_for('index_1'))
         except Exception as e:
             flash(f'Erreur lors de l\'ajout du collaborateur: {str(e)}', 'error')
-            return redirect(url_for('add_vehicle_1'))
+            return redirect(url_for('add_collaborateur_1'))
     return render_template('add_collaborateur_1.html')
 
-@app.route('/add_vehicle_2', methods=['GET', 'POST'])
-def add_vehicle_2():
+@app.route('/add_collaborateur_2', methods=['GET', 'POST'])
+def add_collaborateur_2():
     if request.method == 'POST':
         try:
-            vehicle_type = request.form['vehicle_type']
-            brand = request.form['brand']
-            commercial_type = request.form['commercial_type']
-            group_number = request.form.get('group_number', type=int)
-            license_plate = request.form['license_plate']
-            work_with = request.form.get('work_with') or None
-            kilometer_additional_inspection = request.form.get('kilometer_additional_inspection', type=int)
-            def parse_dt(field):
-                val = request.form.get(field)
-                return datetime.strptime(val, '%Y-%m-%d') if val else None
-            ct_soeco_date = parse_dt('ct_soeco_date')
-            euromaster_chrono = parse_dt('euromaster_chrono')
-            euromaster_limiteur = parse_dt('euromaster_limiteur')
-            ned92_chrono = parse_dt('ned92_chrono')
-            ned92_limiteur = parse_dt('ned92_limiteur')
-            date_technical_inspection = parse_dt('date_technical_inspection')
-            date_chrono = parse_dt('date_chrono')
-            date_limiteur = parse_dt('date_limiteur')
-            comments = request.form.get('comments') or None
+            nom = request.form['nom']
+            prenom = request.form['prenom']
+            date_renouvellement_str = request.form.get('date_renouvellement')
+            date_validite_str = request.form.get('date_validite')
+            commentaire = request.form.get('commentaire')
+            from datetime import datetime
+            date_renouvellement = datetime.strptime(date_renouvellement_str, '%Y-%m-%d').date() if date_renouvellement_str else None
+            date_validite = datetime.strptime(date_validite_str, '%Y-%m-%d').date() if date_validite_str else None
             db = next(get_db_2())
-            create_vehicle_2(db,
-                           vehicle_type=vehicle_type,
-                           brand=brand,
-                           commercial_type=commercial_type,
-                           group_number=group_number,
-                           license_plate=license_plate,
-                           work_with=work_with,
-                           kilometer_additional_inspection=kilometer_additional_inspection,
-                           ct_soeco_date=ct_soeco_date,
-                           euromaster_chrono=euromaster_chrono,
-                           euromaster_limiteur=euromaster_limiteur,
-                           ned92_chrono=ned92_chrono,
-                           ned92_limiteur=ned92_limiteur,
-                           date_technical_inspection=date_technical_inspection,
-                           date_chrono=date_chrono,
-                           date_limiteur=date_limiteur,
-                           comments=comments)
-            flash('Véhicule ajouté avec succès!', 'success')
+            create_collaborateur_2(
+                db,
+                nom=nom,
+                prenom=prenom,
+                date_renouvellement=date_renouvellement,
+                date_validite=date_validite,
+                commentaire=commentaire
+            )
+            flash('Collaborateur ajouté avec succès!', 'success')
             return redirect(url_for('index_2'))
-        except ValueError as e:
-            flash(f'Erreur de format de date: {str(e)}', 'error')
-            return redirect(url_for('add_vehicle_2'))
         except Exception as e:
-            flash(f'Erreur lors de l\'ajout du véhicule: {str(e)}', 'error')
-            return redirect(url_for('add_vehicle_2'))
-    return render_template('add_vehicle_2.html')
+            flash(f'Erreur lors de l\'ajout du collaborateur: {str(e)}', 'error')
+            return redirect(url_for('add_collaborateur_2'))
+    return render_template('add_collaborateur_2.html')
 
-@app.route('/edit_vehicle_1/<int:id>', methods=['GET', 'POST'])
-def edit_vehicle_1(id):
+@app.route('/edit_collaborateur_1/<int:id>', methods=['GET', 'POST'])
+def edit_collaborateur_1(id):
     db = next(get_db_1())
     collaborateur = get_collaborateur_1(db, id)
     if request.method == 'POST':
@@ -167,66 +141,44 @@ def edit_vehicle_1(id):
             return redirect(url_for('index_1'))
         except Exception as e:
             flash(f'Erreur lors de la mise à jour du collaborateur: {str(e)}', 'error')
-            return redirect(url_for('edit_vehicle_1', id=id))
+            return redirect(url_for('edit_collaborateur_1', id=id))
     return render_template('edit_collaborateur_1.html', collaborateur=collaborateur)
 
-@app.route('/edit_vehicle_2/<int:id>', methods=['GET', 'POST'])
-def edit_vehicle_2(id):
+@app.route('/edit_collaborateur_2/<int:id>', methods=['GET', 'POST'])
+def edit_collaborateur_2(id):
     db = next(get_db_2())
-    vehicle = get_vehicle_2(db, id)
+    collaborateur = get_collaborateur_2(db, id)
     if request.method == 'POST':
         try:
-            vehicle_type = request.form['vehicle_type']
-            brand = request.form['brand']
-            commercial_type = request.form['commercial_type']
-            group_number = request.form.get('group_number', type=int)
-            license_plate = request.form['license_plate']
-            work_with = request.form.get('work_with') or None
-            kilometer_additional_inspection = request.form.get('kilometer_additional_inspection', type=int)
-            def parse_dt(field):
-                val = request.form.get(field)
-                return datetime.strptime(val, '%Y-%m-%d') if val else None
-            ct_soeco_date = parse_dt('ct_soeco_date')
-            euromaster_chrono = parse_dt('euromaster_chrono')
-            euromaster_limiteur = parse_dt('euromaster_limiteur')
-            ned92_chrono = parse_dt('ned92_chrono')
-            ned92_limiteur = parse_dt('ned92_limiteur')
-            date_technical_inspection = parse_dt('date_technical_inspection')
-            date_chrono = parse_dt('date_chrono')
-            date_limiteur = parse_dt('date_limiteur')
-            comments = request.form.get('comments') or None
-            update_vehicle_2(db, id,
-                           vehicle_type=vehicle_type,
-                           brand=brand,
-                           commercial_type=commercial_type,
-                           group_number=group_number,
-                           license_plate=license_plate,
-                           work_with=work_with,
-                           kilometer_additional_inspection=kilometer_additional_inspection,
-                           ct_soeco_date=ct_soeco_date,
-                           euromaster_chrono=euromaster_chrono,
-                           euromaster_limiteur=euromaster_limiteur,
-                           ned92_chrono=ned92_chrono,
-                           ned92_limiteur=ned92_limiteur,
-                           date_technical_inspection=date_technical_inspection,
-                           date_chrono=date_chrono,
-                           date_limiteur=date_limiteur,
-                           comments=comments)
-            flash('Véhicule modifié avec succès!', 'success')
+            nom = request.form.get('nom')
+            prenom = request.form.get('prenom')
+            date_renouvellement_str = request.form.get('date_renouvellement')
+            date_validite_str = request.form.get('date_validite')
+            commentaire = request.form.get('commentaire')
+            from datetime import datetime
+            date_renouvellement = datetime.strptime(date_renouvellement_str, '%Y-%m-%d').date() if date_renouvellement_str else None
+            date_validite = datetime.strptime(date_validite_str, '%Y-%m-%d').date() if date_validite_str else None
+            update_collaborateur_2(
+                db,
+                id,
+                nom=nom,
+                prenom=prenom,
+                date_renouvellement=date_renouvellement,
+                date_validite=date_validite,
+                commentaire=commentaire
+            )
+            flash('Collaborateur mis à jour avec succès!', 'success')
             return redirect(url_for('index_2'))
-        except ValueError as e:
-            flash(f'Erreur de format de date: {str(e)}', 'error')
-            return redirect(url_for('edit_vehicle_2', id=id))
         except Exception as e:
-            flash(f'Erreur lors de la modification du véhicule: {str(e)}', 'error')
-            return redirect(url_for('edit_vehicle_2', id=id))
-    if vehicle is None:
-        flash('Véhicule non trouvé.', 'error')
+            flash(f'Erreur lors de la mise à jour du collaborateur: {str(e)}', 'error')
+            return redirect(url_for('edit_collaborateur_2', id=id))
+    if collaborateur is None:
+        flash('Collaborateur non trouvé.', 'error')
         return redirect(url_for('index_2'))
-    return render_template('edit_vehicle_2.html', vehicle=vehicle)
+    return render_template('edit_collaborateur_2.html', collaborateur=collaborateur)
 
-@app.route('/delete_vehicle_1/<int:id>')
-def delete_vehicle_route_1(id):
+@app.route('/delete_collaborateur_route_1/<int:id>')
+def delete_collaborateur_route_1(id):
     db = next(get_db_1())
     if delete_collaborateur_1(db, id):
         flash('Collaborateur supprimé avec succès!', 'success')
@@ -234,10 +186,10 @@ def delete_vehicle_route_1(id):
         flash('Erreur lors de la suppression du collaborateur.', 'error')
     return redirect(url_for('index_1'))
 
-@app.route('/delete_vehicle_2/<int:id>')
-def delete_vehicle_route_2(id):
+@app.route('/delete_collaborateur_route_2/<int:id>')
+def delete_collaborateur_route_2(id):
     db = next(get_db_2())
-    delete_vehicle_2(db, id)
+    delete_collaborateur_2(db, id)
     return redirect(url_for('index_2'))
 
 if __name__ == '__main__':

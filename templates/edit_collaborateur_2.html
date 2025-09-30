@@ -68,39 +68,27 @@
                 <div class="row">
                     <!-- Required Fields -->
                     <div class="col-md-4 mb-3">
-                        <label for="vehicle_type" class="form-label">Type de Véhicule *</label>
-                        <input type="text" class="form-control" id="vehicle_type" name="vehicle_type"
-                            value="{{ vehicle.vehicle_type }}" required>
+                        <label for="nom" class="form-label">Nom *</label>
+                        <input type="text" class="form-control" id="nom" name="nom"
+                            value="{{ collaborateur.nom }}" required>
                     </div>
 
                     <div class="col-md-4 mb-3">
-                        <label for="brand" class="form-label">Marque *</label>
-                        <input type="text" class="form-control" id="brand" name="brand" value="{{ vehicle.brand }}"
-                            required>
+                        <label for="prenom" class="form-label">Prénom *</label>
+                        <input type="text" class="form-control" id="prenom" name="prenom"
+                            value="{{ collaborateur.prenom }}" required>
                     </div>
 
                     <div class="col-md-4 mb-3">
-                        <label for="commercial_type" class="form-label">Type Commercial *</label>
-                        <input type="text" class="form-control" id="commercial_type" name="commercial_type"
-                            value="{{ vehicle.commercial_type }}" required>
+                        <label for="date_renouvellement" class="form-label">Date de Renouvellement</label>
+                        <input type="date" class="form-control" id="date_renouvellement" name="date_renouvellement"
+                            value="{{ collaborateur.date_renouvellement.strftime('%Y-%m-%d') if collaborateur.date_renouvellement }}">
                     </div>
 
                     <div class="col-md-4 mb-3">
-                        <label for="group_number" class="form-label">Numéro de Groupe</label>
-                        <input type="number" class="form-control" id="group_number" name="group_number"
-                            value="{{ vehicle.group_number }}">
-                    </div>
-
-                    <div class="col-md-4 mb-3">
-                        <label for="license_plate" class="form-label">Plaque d'Immatriculation *</label>
-                        <input type="text" class="form-control" id="license_plate" name="license_plate"
-                            value="{{ vehicle.license_plate }}" required>
-                    </div>
-
-                    <div class="col-md-4 mb-3">
-                        <label for="work_with" class="form-label">Travaille avec</label>
-                        <input type="text" class="form-control" id="work_with" name="work_with"
-                            value="{{ vehicle.work_with }}">
+                        <label for="date_validite" class="form-label">Date de Validité</label>
+                        <input type="date" class="form-control" id="date_validite" name="date_validite"
+                            value="{{ collaborateur.date_validite.strftime('%Y-%m-%d') if collaborateur.date_validite }}">
                     </div>
 
                     <!-- Date Fields -->
@@ -161,9 +149,9 @@
                     </div>
 
                     <div class="col-md-12 mb-3">
-                        <label for="comments" class="form-label">Commentaires</label>
-                        <textarea class="form-control" id="comments" name="comments"
-                            rows="3">{{ vehicle.comments }}</textarea>
+                        <label for="commentaire" class="form-label">Commentaire</label>
+                        <textarea class="form-control" id="commentaire" name="commentaire"
+                            rows="3">{{ collaborateur.commentaire }}</textarea>
                     </div>
                 </div>
 
