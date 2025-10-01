@@ -114,11 +114,11 @@ def parse_date(value):
     return None
 
 def get_collaborateur_notifications(collaborateur, today, two_weeks_later):
-    """Extract notifications for a collaborateur (date_renouvellement, date_validite)."""
+    """Extract notifications for a collaborateur (date_validite only)."""
     notifications = []
+    # Only scan the date_validite field
     for field, label in [
-        ("date_renouvellement", "Date de renouvellement"),
-        ("date_validite", "Date de validité")
+        ("date_validite", "Date de validité"),
     ]:
         raw = getattr(collaborateur, field, None)
         expiry_date = parse_date(raw)
@@ -148,10 +148,7 @@ def check_inspection_dates():
         logger.info(f"Checking inspections between {today} and {two_weeks_later} for database_management_2.db")
 
         collaborateurs = db.query(Collaborateur).filter(
-            or_(
-                Collaborateur.date_renouvellement.isnot(None),
-                Collaborateur.date_validite.isnot(None)
-            )
+            Collaborateur.date_validite.isnot(None)
         ).all()
 
         if not collaborateurs:
