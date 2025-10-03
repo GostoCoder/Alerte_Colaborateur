@@ -86,5 +86,24 @@
         }, false)
     })
 })()
+    // Format "nom" as uppercase and "prenom" with first letter capitalized
+    document.addEventListener('DOMContentLoaded', function () {
+        const nomInput = document.getElementById('nom');
+        const prenomInput = document.getElementById('prenom');
+
+        if (nomInput) {
+            nomInput.addEventListener('input', function () {
+                nomInput.value = nomInput.value.toUpperCase();
+            });
+            nomInput.value = nomInput.value.toUpperCase();
+        }
+
+        if (prenomInput) {
+            prenomInput.addEventListener('input', function () {
+                prenomInput.value = prenomInput.value.charAt(0).toUpperCase() + prenomInput.value.slice(1).toLowerCase();
+            });
+            prenomInput.value = prenomInput.value.charAt(0).toUpperCase() + prenomInput.value.slice(1).toLowerCase();
+        }
+    });
 </script>
 {% endblock %}

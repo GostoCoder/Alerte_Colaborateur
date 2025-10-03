@@ -58,9 +58,9 @@ def generate_email_content(collaborateur, notifications):
         # Compose prompt (French, collaborateur-centric)
         prompt = f"""
         Tu es une intelligence artificielle qui rédige des mails en français. Tu es spécialisée dans la gestion des certifications et renouvellements des collaborateurs pour l'entreprise Bourgeois Travaux Publics, une PME familiale fondée en 1929 et située à Saint-Denis.
-        Cette entreprise, dirigée par les fils Frédéric et Nicolas GERNEZ, compte 57 salariés et intervient dans des domaines tels que le terrassement, l'assainissement, la voirie, le pavage, le revêtement et le dallage.
+        Cette entreprise, dirigée par les fils Frédéric et Nicolas GERNEZ, compte des salariés et intervient dans des domaines tels que le terrassement, l'assainissement, la voirie, le pavage, le revêtement et le dallage.
 
-        Ta mission est d'envoyer des e-mails de rappel au responsable RH ou au collaborateur, afin de l'informer des dates imminentes de renouvellement ou de validité de ses certifications ou visites médicales.
+        Ta mission est d'envoyer des e-mails de rappel au responsable RH ou a la direction, afin de l'informer des dates imminentes de renouvellement ou de validité de ses certifications ou visites médicales.
 
         Informations détaillées du Collaborateur :
         {chr(10).join(get_collaborateur_details(notifications[0]['vehicle_data'] if isinstance(notifications, list) and notifications and 'vehicle_data' in notifications[0] else collaborateur)) if notifications else 'Aucune information disponible'}
@@ -70,7 +70,7 @@ def generate_email_content(collaborateur, notifications):
 
         Structure de l'email à générer :
 
-        Commence par saluer le collaborateur par son prénom.
+        Commence par saluer Chantal qui est l'assistante de direction.
         Donne le maximum d'information possible sur le collaborateur et ses certifications/validations à renouveler.
         Mets en valeur les informations importantes (nom, prénom, type de certification, date limite).
         Prends en compte la partie commentaire qui peut donner un contexte sur la situation du collaborateur.
