@@ -4,18 +4,20 @@ import os
 from datetime import datetime
 
 DB_PATH = "database_management_1.db"
-CSV_PATH = os.path.join(os.path.dirname(__file__), "best.csv")
+CSV_PATH = os.path.join(os.path.dirname(__file__), "consommable", "best.csv")
 TABLE = "collaborateurs"
 
 EXPECTED_FIELDS = ['id','nom','prenom','fimo','caces','aipr','hg0b0','visite_med','brevet_secour','commentaire']
 
 def parse_date(value):
     """Parse an ISO date string (YYYY-MM-DD) and return ISO date (YYYY-MM-DD) or None.
-
-    Accept only "%Y-%m-%d".
+ 
+    Accept only "%Y-%m-%d". Coerce non-str inputs to str and handle None safely.
     """
-    if not value:
+    if value is None:
         return None
+    if not isinstance(value, str):
+        value = str(value)
     value = value.strip()
     if not value:
         return None
@@ -28,15 +30,28 @@ def normalize_row(raw_row):
     """Return a dict with expected keys and stripped values (strings)."""
     row = {}
     # Build a lookup of original keys by their normalized form (strip+lower)
-    key_map = {k.strip().lower(): k for k in raw_row.keys()}
+    key_map = {}
+    for k in raw_row.keys():
+        if k is None:
+            continue
+        try:
+            nk = k.strip().lower()
+        except Exception:
+            nk = str(k).strip().lower()
+        key_map[nk] = k
     for key in EXPECTED_FIELDS:
         k_lower = key.strip().lower()
         orig_key = key_map.get(k_lower)
         # prefer the original-cased header if present, fall back to the raw key name
-        val = raw_row.get(orig_key) if orig_key is not None else raw_row.get(key)
+        if orig_key is not None and orig_key in raw_row:
+            val = raw_row.get(orig_key)
+        else:
+            val = raw_row.get(key)
         if val is None:
             val = ""
-        row[key] = val.strip() if isinstance(val, str) else str(val).strip()
+        if not isinstance(val, str):
+            val = str(val)
+        row[key] = val.strip()
     return row
 
 def process_row(row, line_no):
@@ -64,6 +79,19 @@ def process_row(row, line_no):
 def seed_database():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    # ensure table exists with the expected schema
+    cursor.execute("""CREATE TABLE IF NOT EXISTS collaborateurs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom VARCHAR(100) NOT NULL,
+        prenom VARCHAR(100) NOT NULL,
+        fimo DATE,
+        caces DATE,
+        aipr DATE,
+        hg0b0 DATE,
+        visite_med DATE,
+        brevet_secour DATE,
+        commentaire TEXT
+    )""")
     inserted = 0
     with open(CSV_PATH, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
