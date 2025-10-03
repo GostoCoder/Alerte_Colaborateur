@@ -12,7 +12,7 @@ app.secret_key = os.urandom(24)
 @app.template_filter('format_date')
 def format_date(date):
     if date:
-        return date.strftime('%d/%m/%Y')
+        return date.strftime('%Y-%m-%d')
     return ""
 
 @app.route('/')

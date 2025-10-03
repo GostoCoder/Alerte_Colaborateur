@@ -62,8 +62,8 @@
                             </td>
                             <td>{{ collaborateur.nom }}</td>
                             <td>{{ collaborateur.prenom }}</td>
-                            <td>{{ collaborateur.date_renouvellement.strftime('%d/%m/%Y') if collaborateur.date_renouvellement }}</td>
-                            <td>{{ collaborateur.date_validite.strftime('%d/%m/%Y') if collaborateur.date_validite }}</td>
+                            <td>{{ collaborateur.date_renouvellement|format_date }}</td>
+                            <td>{{ collaborateur.date_validite|format_date }}</td>
                             <td>{{ collaborateur.commentaire }}</td>
                         </tr>
                         {% endfor %}
@@ -121,10 +121,15 @@ document.addEventListener('DOMContentLoaded', function () {
           return dir === 'asc' ? aNum - bNum : bNum - aNum;
         }
 
-        // Try date (dd/mm/yyyy)
+        // Try date (YYYY-MM-DD)
         var parseDate = function(s) {
-          var parts = s.split('/');
-          return parts.length === 3 ? new Date(parts[2], parts[1]-1, parts[0]).getTime() : NaN;
+          if (!s) return NaN;
+          var parts = s.split('-');
+          if (parts.length !== 3) return NaN;
+          // Ensure numeric parts
+          var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+          if (isNaN(y) || isNaN(m) || isNaN(d)) return NaN;
+          return new Date(y, m - 1, d).getTime();
         };
         var aTime = parseDate(aCell);
         var bTime = parseDate(bCell);

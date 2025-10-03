@@ -98,7 +98,10 @@ def validate_date_field(date_obj):
 
 
 def parse_date(value):
-    """Parse a value as a date, supporting date, datetime, and string formats."""
+    """Parse a value as a date, supporting date, datetime, and string formats.
+
+    Accept only ISO format "%Y-%m-%d".
+    """
     if value is None:
         return None
     if isinstance(value, date):
@@ -106,11 +109,10 @@ def parse_date(value):
     if isinstance(value, datetime):
         return value.date()
     if isinstance(value, str):
-        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
-            try:
-                return datetime.strptime(value.strip(), fmt).date()
-            except Exception:
-                continue
+        try:
+            return datetime.strptime(value.strip(), "%Y-%m-%d").date()
+        except Exception:
+            return None
     return None
 
 def get_collaborateur_notifications(collaborateur, today, two_weeks_later):
